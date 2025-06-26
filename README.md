@@ -8,6 +8,10 @@ We focus on real-world applications, proven strategies, and lessons learned from
 
 ## Repository Structure
 
+**🏨 [Hotel Booking & Reconfirmation](./hotel-booking-reconfirmation/)**:
+
+Deep dive into hotel reservation processes, from initial booking to guest arrival. Covers confirmation workflows, inventory sync, rate management, and reducing no-shows. Practical solutions for common booking challenges.
+
 **🤖 [AI & Automation](./ai-automation/)**:
 
 Everything you need to know about implementing AI in travel operations. From chatbots and pricing algorithms to process automation and predictive analytics. Includes practical implementation guides, cost-benefit analysis, and what actually works in the real world.
@@ -19,10 +23,6 @@ Operational best practices for running efficient travel businesses. Covers inven
 **🎯 [Customer Experience and Support](./customer-experience-support/)**:
 
 Proven strategies for delivering exceptional customer service at scale. Explore omnichannel support, personalization techniques, self-service solutions, and measuring what matters. Real examples from companies getting customer experience right.
-
-**🏨 [Hotel Booking & Reconfirmation](./hotel-booking-reconfirmation/)**:
-
-Deep dive into hotel reservation processes, from initial booking to guest arrival. Covers confirmation workflows, inventory sync, rate management, and reducing no-shows. Practical solutions for common booking challenges.
 
 ## Our Approach
 We curate content from travel professionals, operational leaders, and technology implementers who share what they've learned. Every piece is designed to help you make better decisions and avoid common pitfalls.
