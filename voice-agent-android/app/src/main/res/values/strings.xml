@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Voice Agent</string>
+    <string name="a11y_summary">Talk to your phone in English or Marathi</string>
+    <string name="a11y_description">Voice Agent listens when you tap its floating mic button, then operates your phone for you: calls, WhatsApp messages and files, apps, alarms and more. It reads the screen and taps for you only while it is doing something you asked for. Nothing is sent to the internet by Voice Agent itself.</string>
+    <string name="talk">Talk</string>
+</resources>
