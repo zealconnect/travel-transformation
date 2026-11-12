@@ -53,16 +53,23 @@ If something essential is missing ("message Amit"), it asks ("What should I tell
 
 The instructions the model follows are in `app/src/main/assets/brain/`. They were tested against the exact model file the app downloads, on 31 English, Marathi and Hinglish commands.
 
-## Two versions
+## Pressing Send for you (auto-send)
 
-| | **VoiceAgent.apk** (use this) | VoiceAgent-full.apk |
+Out of the box the agent **drafts** WhatsApp and SMS messages and leaves you to tap Send. To make it press Send itself, it needs Android's Accessibility access, which Google blocks for apps installed outside the Play Store. You can unlock it in either of two ways; **no computer is required.**
+
+**On the phone (Shizuku):** in the app, open the **Press Send for me** card and follow the three steps. It installs the free [Shizuku](https://play.google.com/store/apps/details?id=moe.shizuku.privileged.api) app, which you start once via Android's **Wireless debugging** (a few taps in Developer options). The agent then installs its own full version over itself and turns on screen control; your settings and the downloaded brain are kept. Afterwards Shizuku can be removed. If you restart the phone and Send stops working, just open Shizuku and start it again.
+
+**From a computer (alternative):** `adb install release/VoiceAgent-full.apk`, then turn on *Screen control* in the app.
+
+Once set up, the full version also:
+
+| | Drafts only (default) | After auto-send upgrade |
 |---|---|---|
-| Install from the phone | ✅ | ❌ Play Protect blocks it |
-| WhatsApp / SMS messages and files | Opens ready to send; **you tap Send** | Presses Send for you |
-| Wi-Fi / Bluetooth | Opens the switch; you tap it | Flips it for you |
+| WhatsApp / SMS messages and files | You tap Send | Presses Send for you |
+| Wi-Fi / Bluetooth | Opens the switch | Flips it for you |
 | "Send this to Mom" (Share button of the open app), read the screen, go back, lock | ❌ | ✅ |
 
-The full version needs Accessibility, which Play Protect blocks for apps installed from a browser. Install it from a computer: `adb install release/VoiceAgent-full.apk`.
+`VoiceAgent.apk` carries the full version inside it, so the in-app upgrade needs no further download.
 
 When a request has several steps and one of them waits for you to tap Send, the following steps that would open another app wait in your notifications, so nothing covers the message you're about to send.
 
@@ -97,6 +104,7 @@ Signed with `app/voiceagent.keystore` (kept in the repo on purpose), so new buil
 | `Contacts.kt`, `FileFinder.kt` | Finding people (incl. "Mom"/"आई", "brother"/"भाऊ") and files |
 | `Voice.kt` | Listening and speaking |
 | `TalkActivity.kt`, `GlowView.kt`, `Assistant.kt`, `AgentTileService.kt` | Ways to start talking, and the bottom-edge glow |
+| `Upgrade.kt` | Phone-only one-time upgrade to the full (auto-send) version via Shizuku |
 | `MainActivity.kt`, `Prefs.kt` | The Material 3 settings screen |
 
 `app/src/full/`: `AgentAccessibilityService.kt` (screen control), full version only.

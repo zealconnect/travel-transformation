@@ -108,6 +108,34 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Auto-send upgrade (lite only) -->
+            <com.google.android.material.card.MaterialCardView android:id="@+id/upgradeCard" style="@style/Card"
+                android:visibility="gone">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:gravity="center_vertical" android:orientation="horizontal">
+                        <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                            android:src="@drawable/ic_send" android:importantForAccessibility="no" />
+                        <TextView style="@style/CardTitle" android:layout_marginStart="12dp"
+                            android:text="Press Send for me" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/upgradeText" style="@style/Body" android:layout_marginTop="8dp" />
+                    <com.google.android.material.progressindicator.LinearProgressIndicator android:id="@+id/upgradeProgress"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp" android:indeterminate="true" android:visibility="gone"
+                        app:trackCornerRadius="4dp" />
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp" android:gravity="end" android:orientation="horizontal">
+                        <Button android:id="@+id/btnUpgradeHelp" style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="How it works" />
+                        <Button android:id="@+id/btnUpgrade" style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp" android:text="Set up" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Preferences -->
             <com.google.android.material.card.MaterialCardView style="@style/Card">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"

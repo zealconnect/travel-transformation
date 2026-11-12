@@ -13,8 +13,8 @@ android {
         applicationId = "com.example.voiceagent"
         minSdk = 30          // Android 11+, needed for screenshots and the Enter key
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "3.0"
         ndk { abiFilters += "arm64-v8a" }   // Pixel 7 and every modern phone
     }
 
@@ -40,9 +40,10 @@ android {
             isDefault = true
             buildConfigField("boolean", "FULL", "false")
         }
+        // Same app id as "lite", so the phone-only upgrade installs over it and keeps
+        // settings and the downloaded brain.
         create("full") {
             dimension = "edition"
-            applicationIdSuffix = ".full"
             versionNameSuffix = "-full"
             buildConfigField("boolean", "FULL", "true")
         }
@@ -73,9 +74,27 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     // Free AI that runs entirely on the phone (Google LiteRT-LM + Gemma 4). No account, no API key.
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.1")
+    // Phone-only one-time upgrade to the full version (see Upgrade.kt).
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation("androidx.test:core:1.7.0")
     testImplementation("org.json:json:20250517")
+}
+
+// The "lite" app carries the "full" app inside it (as an asset), so it can upgrade itself
+// on the phone via Shizuku (Upgrade.kt). Only the lite flavor bundles it.
+val bundleFullApk by tasks.registering(Copy::class) {
+    dependsOn("assembleFullDebug")
+    from(layout.buildDirectory.dir("outputs/apk/full/debug")) {
+        include("*.apk")
+        rename { "full.apk" }
+    }
+    into(layout.buildDirectory.dir("generated/fullApk/upgrade"))
+}
+android.sourceSets.getByName("lite").assets.srcDir(layout.buildDirectory.dir("generated/fullApk"))
+tasks.configureEach {
+    if (name.contains("Lite") && (name.contains("Assets") || name.contains("Lint"))) dependsOn(bundleFullApk)
 }

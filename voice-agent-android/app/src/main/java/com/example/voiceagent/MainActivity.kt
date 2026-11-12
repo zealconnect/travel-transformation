@@ -28,11 +28,18 @@ import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /** Settings and setup. The agent itself runs in [AgentService]. */
 class MainActivity : AppCompatActivity() {
 
     private val ui = Handler(Looper.getMainLooper())
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var upgrading = false
     private lateinit var swEnabled: MaterialSwitch
     private val ticker = object : Runnable {
         override fun run() { refresh(); ui.postDelayed(this, 1000) }
@@ -109,8 +116,17 @@ class MainActivity : AppCompatActivity() {
         etTry.setOnEditorActionListener { _, action, _ -> if (action == EditorInfo.IME_ACTION_SEND) { run(); true } else false }
 
         findViewById<Button>(R.id.btnExamples).setOnClickListener { showExamples() }
+
+        findViewById<Button>(R.id.btnUpgrade).setOnClickListener { onUpgradeButton() }
+        findViewById<Button>(R.id.btnUpgradeHelp).setOnClickListener { showUpgradeHelp() }
+
         findViewById<TextView>(R.id.footer).text =
             "Understanding runs privately on this phone. Speech is recognised by Google's speech service."
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
     }
 
     override fun onStart() { super.onStart(); Ui.visible++ }
@@ -256,6 +272,91 @@ class MainActivity : AppCompatActivity() {
         }
         renderSetup(steps)
         refreshBrain()
+        refreshUpgrade()
+    }
+
+    // ------------------------------------------------------------------ auto-send upgrade (lite only)
+
+    private fun onUpgradeButton() {
+        when (Upgrade.stage(this)) {
+            Upgrade.Stage.NO_SHIZUKU ->
+                open(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${Upgrade.SHIZUKU_PKG}")))
+            Upgrade.Stage.NOT_RUNNING -> {
+                val launch = packageManager.getLaunchIntentForPackage(Upgrade.SHIZUKU_PKG)
+                if (launch != null) startActivity(launch) else Toast.makeText(this, "Open the Shizuku app and start it.", Toast.LENGTH_LONG).show()
+            }
+            Upgrade.Stage.NEEDS_PERMISSION -> Upgrade.requestPermission()
+            Upgrade.Stage.READY -> {
+                upgrading = true
+                refreshUpgrade()
+                scope.launch {
+                    val ok = Upgrade.start(this@MainActivity)
+                    if (!ok) {
+                        upgrading = false
+                        Toast.makeText(this@MainActivity, "Upgrade couldn't start. Make sure Shizuku is running.", Toast.LENGTH_LONG).show()
+                        refreshUpgrade()
+                    }
+                    // On success the app is reinstalled and reopened automatically.
+                }
+            }
+        }
+    }
+
+    private fun refreshUpgrade() {
+        val card = findViewById<View>(R.id.upgradeCard)
+        if (BuildConfig.FULL) { card.visibility = View.GONE; return }
+        card.visibility = View.VISIBLE
+        val text = findViewById<TextView>(R.id.upgradeText)
+        val bar = findViewById<LinearProgressIndicator>(R.id.upgradeProgress)
+        val btn = findViewById<MaterialButton>(R.id.btnUpgrade)
+        bar.visibility = if (upgrading) View.VISIBLE else View.GONE
+        btn.isEnabled = !upgrading
+        if (upgrading) {
+            text.text = "Installing the full version… the app will reopen by itself in a moment."
+            btn.text = "Working…"
+            return
+        }
+        val intro = "Right now the agent drafts WhatsApp and SMS messages and leaves you to tap Send. " +
+            "This one-time step lets it press Send for you. It uses Shizuku (free) once; after that you can remove Shizuku."
+        when (Upgrade.stage(this)) {
+            Upgrade.Stage.NO_SHIZUKU -> { text.text = "$intro\n\nStep 1 of 3: install the free Shizuku app."; btn.text = "Get Shizuku" }
+            Upgrade.Stage.NOT_RUNNING -> { text.text = "$intro\n\nStep 2 of 3: open Shizuku and start it (it shows how, using Wireless debugging — no computer)."; btn.text = "Open Shizuku" }
+            Upgrade.Stage.NEEDS_PERMISSION -> { text.text = "$intro\n\nStep 3 of 3: allow Voice Agent in Shizuku."; btn.text = "Allow in Shizuku" }
+            Upgrade.Stage.READY -> { text.text = "Shizuku is ready. Tap to turn on automatic Send."; btn.text = "Turn on auto-send" }
+        }
+    }
+
+    private fun showUpgradeHelp() {
+        val d = resources.displayMetrics.density
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((24 * d).toInt(), (8 * d).toInt(), (24 * d).toInt(), (32 * d).toInt())
+        }
+        box.addView(TextView(this).apply {
+            text = "Why this is needed"
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleLarge)
+        })
+        val body = """
+            To press Send inside WhatsApp, an app needs Android's Accessibility access. Google blocks that for apps installed outside the Play Store, and won't let you switch it on by hand.
+
+            Shizuku is a free, well-known app that unlocks this once, without a computer:
+
+            1. Install Shizuku from the Play Store.
+            2. Start it using "Wireless debugging" (Shizuku shows the steps; it's a few taps in Developer options).
+            3. Allow Voice Agent in Shizuku.
+            4. Come back here and tap "Turn on auto-send".
+
+            Voice Agent then installs its full version over itself and switches on screen control. Your settings and the downloaded brain stay. After that, Shizuku isn't needed and you can remove it. If you ever restart and Send stops working, open Shizuku, start it again — no need to repeat the rest.
+        """.trimIndent()
+        box.addView(TextView(this).apply {
+            text = body
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+            setPadding(0, (16 * d).toInt(), 0, 0)
+        })
+        BottomSheetDialog(this).apply {
+            setContentView(androidx.core.widget.NestedScrollView(this@MainActivity).apply { addView(box) })
+            show()
+        }
     }
 
     private fun renderSetup(steps: List<Step>) {
