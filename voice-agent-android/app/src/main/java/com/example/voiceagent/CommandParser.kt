@@ -150,6 +150,12 @@ object CommandParser {
     }
 
     fun parseDuration(s: String): Int? {
+        when {
+            Regex("""half an hour|half hour|अर्धा तास""").containsMatchIn(s) -> return 1800
+            Regex("""quarter of an hour|quarter hour|पाव तास""").containsMatchIn(s) -> return 900
+            Regex("""\ban hour\b|\bone hour\b|एक तास""").containsMatchIn(s) && !Regex("""\d""").containsMatchIn(s) -> return 3600
+            Regex("""\ba minute\b|\bone minute\b|एक मिनिट""").containsMatchIn(s) && !Regex("""\d""").containsMatchIn(s) -> return 60
+        }
         var total = 0
         for (m in Regex("""(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|सेकंद|मिनिट\S*|तास)""").findAll(s)) {
             val n = m.groupValues[1].toInt()

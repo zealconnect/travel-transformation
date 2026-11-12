@@ -4,8 +4,6 @@ import android.app.role.RoleManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.service.voice.VoiceInteractionService
 import android.service.voice.VoiceInteractionSession
@@ -16,7 +14,6 @@ import android.speech.SpeechRecognizer
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.TextView
 
 /*
  * Optional: Voice Agent as your phone's "Digital assistant app" (Settings → Apps → Default apps).
@@ -42,30 +39,24 @@ class AgentSessionService : VoiceInteractionSessionService() {
     override fun onNewSession(args: Bundle?): VoiceInteractionSession = AgentSession(this)
 }
 
-/** Shown when you hold the power button: listens for one command, then gets out of the way. */
+/** Shown when you hold the power button: the bottom glow while listening, then it gets out of the way. */
 class AgentSession(ctx: Context) : VoiceInteractionSession(ctx) {
 
-    private var label: TextView? = null
+    private var glow: GlowView? = null
     private val listener: (AgentService.State) -> Unit = { s ->
-        when (s) {
-            AgentService.State.LISTENING -> label?.text = context.tr("🎤 Listening…", "🎤 ऐकतोय…")
-            AgentService.State.WORKING, AgentService.State.IDLE -> hide()
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            when (s) {
+                AgentService.State.LISTENING, AgentService.State.THINKING -> glow?.setMode(s)
+                AgentService.State.WORKING, AgentService.State.IDLE -> hide()
+            }
         }
     }
 
     override fun onCreateContentView(): View {
         val d = context.resources.displayMetrics.density
-        val tv = TextView(context).apply {
-            text = context.tr("🎤 Listening…", "🎤 ऐकतोय…")
-            textSize = 20f
-            setTextColor(Color.WHITE)
-            setPadding((24 * d).toInt(), (18 * d).toInt(), (24 * d).toInt(), (18 * d).toInt())
-            background = GradientDrawable().apply { cornerRadius = 28 * d; setColor(Color.parseColor("#E6303F9F")) }
-        }
-        label = tv
+        val g = GlowView(context).also { glow = it }
         return FrameLayout(context).apply {
-            addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = (96 * d).toInt() })
+            addView(g, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, (40 * d).toInt(), Gravity.BOTTOM))
             setOnClickListener { AgentService.instance?.stop(); hide() }
         }
     }

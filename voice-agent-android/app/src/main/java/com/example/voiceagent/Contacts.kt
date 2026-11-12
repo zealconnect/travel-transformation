@@ -15,8 +15,8 @@ object Contacts {
     private val ALIASES = listOf(
         listOf("mom", "mother", "mummy", "mumma", "mommy", "maa", "aai", "aayi", "आई", "मम्मी", "ममी"),
         listOf("dad", "father", "papa", "pappa", "daddy", "baba", "pitaji", "बाबा", "पप्पा", "वडील", "डॅडी"),
-        listOf("brother", "bro", "bhau", "dada", "भाऊ", "दादा"),
-        listOf("sister", "sis", "tai", "didi", "ताई", "दीदी", "बहीण"),
+        listOf("brother", "bro", "bhau", "dada", "भाऊ", "भावा", "दादा"),
+        listOf("sister", "sis", "tai", "didi", "ताई", "दीदी", "बहीण", "बहिणी"),
         listOf("wife", "bayko", "बायको"),
         listOf("husband", "navra", "नवरा"),
         listOf("grandma", "grandmother", "aaji", "आजी", "nani", "dadi"),

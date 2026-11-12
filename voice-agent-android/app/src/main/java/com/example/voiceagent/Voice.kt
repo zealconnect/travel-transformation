@@ -2,8 +2,6 @@ package com.example.voiceagent
 
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -89,14 +87,6 @@ class Voice(private val ctx: Context, private val lang: () -> String) {
         }
     }
 
-    private fun beep() {
-        try {
-            val tg = ToneGenerator(AudioManager.STREAM_MUSIC, 60)
-            tg.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
-            main.postDelayed({ tg.release() }, 400)
-        } catch (_: Exception) {}
-    }
-
     /**
      * Listen for one sentence. Returns null if nothing was understood.
      * [passive] = quiet background listening for the wake word (no beep, on-device when possible).
@@ -107,10 +97,6 @@ class Voice(private val ctx: Context, private val lang: () -> String) {
         if (comp == null && !SpeechRecognizer.isRecognitionAvailable(ctx)) {
             lastError = SpeechRecognizer.ERROR_CLIENT
             return@withContext null
-        }
-        if (!passive) {
-            beep()
-            delay(180)
         }
         val offline = passive && offlineOk
         val r = if (comp != null) SpeechRecognizer.createSpeechRecognizer(ctx, comp) else SpeechRecognizer.createSpeechRecognizer(ctx)

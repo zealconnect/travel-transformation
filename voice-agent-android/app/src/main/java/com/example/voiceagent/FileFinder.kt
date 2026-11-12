@@ -18,7 +18,7 @@ data class FoundFile(val path: String, val name: String, val mime: String)
 /** Finds files on the phone (Downloads, WhatsApp media, camera, documents…). Needs "All files access". */
 object FileFinder {
 
-    fun hasAccess() = Environment.isExternalStorageManager()
+    fun hasAccess() = try { Environment.isExternalStorageManager() } catch (_: Exception) { false }
 
     private val DOC_MIMES = listOf(
         "application/pdf", "application/msword",

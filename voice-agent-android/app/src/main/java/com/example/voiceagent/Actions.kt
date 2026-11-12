@@ -32,28 +32,63 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
     private data class Target(val name: String, val number: String)
 
     private fun tr(en: String, mr: String) = svc.tr(en, mr)
-    private suspend fun say(en: String, mr: String) = voice.speak(tr(en, mr))
+    /** Things you need to hear: answers, questions, problems. */
+    private suspend fun say(en: String, mr: String) {
+        failed = failed || Regex("(?i)couldn't|can't|isn't|doesn't|no |need|not ").containsMatchIn(en)
+        voice.speak(tr(en, mr))
+    }
+
+    /** Confirmations ("Calling Rahul"): only spoken if you chose full spoken replies. */
+    private suspend fun ok(en: String, mr: String) {
+        if (Prefs.talkBack(svc) == "full") voice.speak(tr(en, mr))
+    }
+
+    private var failed = false
+    /** A step left something for you to finish (e.g. tap Send), so later steps must not cover it. */
+    private var waitingForUser = false
+    private var nextLabel = ""
     /** Set when Android made us offer an app as a notification instead of opening it. */
     private var offered = false
 
     private fun start(i: Intent): Boolean {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (i.resolveActivity(svc.packageManager) == null) return false
-        if (!svc.canOpenApps()) {
-            svc.offerLaunch(i, svc.tr("Tap to continue", "पुढे जाण्यासाठी टॅप करा"))
+        if (waitingForUser || !svc.canOpenApps()) {
+            svc.offerLaunch(i, nextLabel.ifEmpty { svc.tr("Continue", "पुढे") })
             offered = true
             return true
         }
         return try { svc.startActivity(i); true } catch (e: Exception) { false }
     }
 
-    suspend fun execute(cmd: Command) {
-        offered = false
-        run(cmd)
+    /** Run the steps one after another. */
+    suspend fun executeAll(steps: List<Command>) {
+        offered = false; failed = false; waitingForUser = false
+        for ((i, cmd) in steps.withIndex()) {
+            nextLabel = label(cmd)
+            run(cmd)
+            if (i < steps.lastIndex) delay(if (waitingForUser) 300 else 700)
+        }
         if (offered) say(
-            "Tap the Voice Agent notification to continue. To skip this step, make Voice Agent your digital assistant in the app.",
-            "पुढे जाण्यासाठी Voice Agent ची नोटिफिकेशन टॅप करा. हे टाळायला ॲपमध्ये Voice Agent ला डिजिटल असिस्टंट बनवा."
+            if (waitingForUser) "The next step is waiting in your notifications." else "Tap the notification to continue.",
+            if (waitingForUser) "पुढची पायरी नोटिफिकेशनमध्ये आहे." else "पुढे जाण्यासाठी नोटिफिकेशन टॅप करा."
         )
+        svc.feedback(if (failed) AgentService.Feel.ERROR else AgentService.Feel.DONE)
+    }
+
+    suspend fun execute(cmd: Command) = executeAll(listOf(cmd))
+
+    /** Short title for a step offered as a notification. */
+    private fun label(c: Command): String = when (c) {
+        is Command.Call -> tr("Call ${c.who}", "${c.who} यांना फोन")
+        is Command.WaCall -> tr("WhatsApp call ${c.who}", "${c.who} यांना WhatsApp कॉल")
+        is Command.WaMessage -> tr("Message ${c.who}", "${c.who} यांना मेसेज")
+        is Command.ShareFile -> tr("Send file to ${c.who}", "${c.who} यांना फाईल")
+        is Command.OpenApp -> tr("Open ${c.name}", "${c.name} उघडा")
+        is Command.Play -> tr("Play ${c.query}", "${c.query} लावा")
+        is Command.Navigate -> tr("Directions to ${c.place}", "${c.place} चा रस्ता")
+        is Command.Search -> tr("Search ${c.query}", "${c.query} शोधा")
+        else -> ""
     }
 
     private suspend fun run(cmd: Command) {
@@ -72,7 +107,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
             }
             is Command.Toggle -> toggle(cmd.what, cmd.on)
             is Command.Alarm -> alarm(cmd.hour, cmd.minute)
-            Command.ShowAlarms -> { start(Intent(AlarmClock.ACTION_SHOW_ALARMS)); say("Here are your alarms. Say a time next time, like: set an alarm for 6:30 AM.", "हे तुमचे अलार्म. पुढच्या वेळी वेळ सांगा, जसं: सकाळी साडे सहाचा अलार्म लाव.") }
+            Command.ShowAlarms -> { start(Intent(AlarmClock.ACTION_SHOW_ALARMS)); ok("Here are your alarms. Say a time next time, like: set an alarm for 6:30 AM.", "हे तुमचे अलार्म. पुढच्या वेळी वेळ सांगा, जसं: सकाळी साडे सहाचा अलार्म लाव.") }
             is Command.Timer -> timer(cmd.seconds)
             is Command.Navigate -> navigate(cmd.place)
             is Command.Search -> search(cmd.query, cmd.site)
@@ -81,7 +116,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
             is Command.Global -> global(cmd.action)
             is Command.SetLanguage -> {
                 Prefs.setLang(svc, cmd.tag)
-                say("Okay, I'll speak English now.", "ठीक आहे, आता मी मराठीत बोलेन.")
+                ok("Okay, I'll speak English now.", "ठीक आहे, आता मी मराठीत बोलेन.")
             }
             is Command.ScreenTask -> ScreenLoop(svc, voice).run(cmd.goal)
             is Command.Answer -> voice.speak(cmd.text)
@@ -115,7 +150,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
                     "हा फोटो आईला पाठव. बाबांना व्हिडिओ कॉल कर. यूट्यूब उघड. टॉर्च चालू कर. सकाळी सहाचा अलार्म लाव. " +
                     "यूट्यूबवर गाणं वाजव. स्क्रीनवर काय आहे वाचून दाखव. किंवा: इंग्रजीत बोल."
             )
-            Command.Stop -> say("Okay.", "ठीक आहे.")
+            Command.Stop -> ok("Okay.", "ठीक आहे.")
         }
     }
 
@@ -140,7 +175,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
         if (close.isNotEmpty()) {
             val options = listOf(pick) + close
             val answer = svc.ask(tr("Which one: ${options.joinToString(", or ") { it.person.name }}?", "कोणता: ${options.joinToString(", की ") { it.person.name }}?"))
-            if (answer.isNullOrBlank()) { say("Okay, cancelled.", "ठीक आहे, रद्द केलं."); return null }
+            if (answer.isNullOrBlank()) { ok("Okay, cancelled.", "ठीक आहे, रद्द केलं."); return null }
             val ordinal = when {
                 Regex("(?i)\\b(first|1st|one)\\b|पहिल").containsMatchIn(answer) -> 0
                 Regex("(?i)\\b(second|2nd|two)\\b|दुसर").containsMatchIn(answer) -> 1
@@ -159,10 +194,10 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
 
     private suspend fun phoneCall(who: String) {
         val t = resolve(who) ?: return
-        say("Calling ${t.name}.", "${t.name} यांना फोन लावत आहे.")
+        ok("Calling ${t.name}.", "${t.name} यांना फोन लावत आहे.")
         val uri = Uri.fromParts("tel", t.number, null)
         val canCall = svc.checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
-        if (canCall) {
+        if (canCall && !waitingForUser) {
             // Works even from the background: the phone app takes over.
             try { svc.getSystemService(android.telecom.TelecomManager::class.java).placeCall(uri, null); return } catch (_: Exception) {}
         }
@@ -224,16 +259,17 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
     private suspend fun waMessage(t: Target, message: String?) {
         val pkg = waPackage() ?: return say("WhatsApp isn't installed.", "WhatsApp इन्स्टॉल केलेलं नाही.")
         val text = message ?: svc.ask(tr("What should I say to ${t.name}?", "${t.name} यांना काय पाठवू?"))
-        if (text.isNullOrBlank()) return say("Okay, cancelled.", "ठीक आहे, रद्द केलं.")
+        if (text.isNullOrBlank()) return ok("Okay, cancelled.", "ठीक आहे, रद्द केलं.")
         openWaChat(pkg, t.number, text)
         val sc = screen
-        if (sc == null || !Prefs.autoSend(svc)) return say("Your message to ${t.name} is ready. Just tap Send.", "${t.name} यांचा मेसेज तयार आहे. फक्त सेंड दाबा.")
+        if (sc == null || !Prefs.autoSend(svc)) { waitingForUser = true }
+        if (sc == null || !Prefs.autoSend(svc)) return ok("Your message to ${t.name} is ready. Just tap Send.", "${t.name} यांचा मेसेज तयार आहे. फक्त सेंड दाबा.")
         val n = sc.waitForNode(9000) { isWaSend(it, pkg) || isNotOnWhatsApp(it, pkg) }
             ?: return say("I opened the chat but couldn't find the send button.", "चॅट उघडला पण सेंड बटण सापडलं नाही.")
         if (isNotOnWhatsApp(n, pkg)) return say("${t.name} doesn't seem to be on WhatsApp.", "${t.name} WhatsApp वर दिसत नाहीत.")
         sc.clickNode(n)
         delay(500)
-        say("Sent to ${t.name}.", "${t.name} यांना पाठवलं.")
+        ok("Sent to ${t.name}.", "${t.name} यांना पाठवलं.")
     }
 
     /** WhatsApp adds "Voice call / Video call" entries to your contacts; opening one starts the call directly. */
@@ -262,8 +298,8 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
     private suspend fun waCall(who: String, video: Boolean) {
         val pkg = waPackage() ?: return say("WhatsApp isn't installed.", "WhatsApp इन्स्टॉल केलेलं नाही.")
         val t = resolve(who) ?: return
-        if (video) say("Video calling ${t.name} on WhatsApp.", "${t.name} यांना WhatsApp व्हिडिओ कॉल करत आहे.")
-        else say("Calling ${t.name} on WhatsApp.", "${t.name} यांना WhatsApp कॉल करत आहे.")
+        if (video) ok("Video calling ${t.name} on WhatsApp.", "${t.name} यांना WhatsApp व्हिडिओ कॉल करत आहे.")
+        else ok("Calling ${t.name} on WhatsApp.", "${t.name} यांना WhatsApp कॉल करत आहे.")
         waCallIntent(pkg, t.number, video)?.let { if (start(it)) return }
         // Fallback: open the chat and press the call button (full build), or let the user press it.
         openWaChat(pkg, t.number, null)
@@ -280,7 +316,8 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
     /** After WhatsApp opens from a share: pick the person if asked, then press Send. */
     private suspend fun finishWaShare(pkg: String, name: String) {
         val sc = screen
-        if (sc == null || !Prefs.autoSend(svc)) return say("It's ready. Just tap Send.", "तयार आहे. फक्त सेंड दाबा.")
+        if (sc == null || !Prefs.autoSend(svc)) { waitingForUser = true }
+        if (sc == null || !Prefs.autoSend(svc)) return ok("It's ready. Just tap Send.", "तयार आहे. फक्त सेंड दाबा.")
         val first = sc.waitForNode(9000) { isWaSend(it, pkg) || isWaPicker(it, pkg) }
             ?: return say("WhatsApp opened but I couldn't finish. Please check the screen.", "WhatsApp उघडलं पण पूर्ण करता आलं नाही. स्क्रीन बघा.")
         if (isWaPicker(first, pkg) && !waPickContact(sc, pkg, name))
@@ -292,7 +329,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
             sent = true
             delay(1200)
         }
-        if (sent) say("Sent to $name.", "$name यांना पाठवलं.")
+        if (sent) ok("Sent to $name.", "$name यांना पाठवलं.")
         else say("I couldn't find the send button.", "सेंड बटण सापडलं नाही.")
     }
 
@@ -317,7 +354,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
         val f = FileFinder.find(svc, q) ?: return say("I couldn't find that file.", "ती फाईल सापडली नाही.")
         val t = resolve(who) ?: return
         val what = FileFinder.spokenName(f, svc)
-        say("Sending $what to ${t.name}.", "$what ${t.name} यांना पाठवत आहे.")
+        ok("Sending $what to ${t.name}.", "$what ${t.name} यांना पाठवत आहे.")
         val uri = FileProvider.getUriForFile(svc, "${svc.packageName}.files", File(f.path))
         val i = Intent(Intent.ACTION_SEND)
             .setType(f.mime)
@@ -348,7 +385,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
             }
         }
         val s = share ?: return say("I can't find a Share button on this screen.", "या स्क्रीनवर शेअर बटण सापडलं नाही.")
-        say("Sharing with ${t.name}.", "${t.name} यांना शेअर करत आहे.")
+        ok("Sharing with ${t.name}.", "${t.name} यांना शेअर करत आहे.")
         sc.clickNode(s)
         var wa = sc.waitForNode(5000) { (it.text ?: "").toString().trim().equals("WhatsApp", true) }
         if (wa == null) {
@@ -362,15 +399,16 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
 
     private suspend fun sms(t: Target, message: String?) {
         val text = message ?: svc.ask(tr("What should the message say?", "मेसेजमध्ये काय लिहू?"))
-        if (text.isNullOrBlank()) return say("Okay, cancelled.", "ठीक आहे, रद्द केलं.")
+        if (text.isNullOrBlank()) return ok("Okay, cancelled.", "ठीक आहे, रद्द केलं.")
         start(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(t.number))).putExtra("sms_body", text))
         val sc = screen
-        if (sc == null || !Prefs.autoSend(svc)) return say("Your text to ${t.name} is ready. Just tap Send.", "${t.name} यांचा मेसेज तयार आहे. फक्त सेंड दाबा.")
+        if (sc == null || !Prefs.autoSend(svc)) { waitingForUser = true }
+        if (sc == null || !Prefs.autoSend(svc)) return ok("Your text to ${t.name} is ready. Just tap Send.", "${t.name} यांचा मेसेज तयार आहे. फक्त सेंड दाबा.")
         val b = sc.waitForNode(7000) { n ->
             !n.isEditable && Regex("^send( sms| message| mms| text)?$|^send (sms|message)\\b.*|^पाठवा").containsMatchIn(label(n))
         } ?: return say("The text is ready but I couldn't find the send button.", "मेसेज तयार आहे पण सेंड बटण सापडलं नाही.")
         sc.clickNode(b)
-        say("Text sent to ${t.name}.", "${t.name} यांना मेसेज पाठवला.")
+        ok("Text sent to ${t.name}.", "${t.name} यांना मेसेज पाठवला.")
     }
 
     // ------------------------------------------------------------------ apps, settings, media
@@ -387,7 +425,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
             Regex("accessibility").containsMatchIn(n) -> Settings.ACTION_ACCESSIBILITY_SETTINGS
             else -> null
         }
-        if (settings != null && start(Intent(settings))) return say("Opening settings.", "सेटिंग्ज उघडत आहे.")
+        if (settings != null && start(Intent(settings))) return ok("Opening settings.", "सेटिंग्ज उघडत आहे.")
         val (ok, message) = svc.openApp(name)
         voice.speak(message)
         if (!ok) return
@@ -400,15 +438,15 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
                 val id = cm.cameraIdList.firstOrNull { cm.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true }
                     ?: return say("This phone has no torch.", "या फोनमध्ये टॉर्च नाही.")
                 cm.setTorchMode(id, on)
-                if (on) say("Torch on.", "टॉर्च चालू केला.") else say("Torch off.", "टॉर्च बंद केला.")
+                if (on) ok("Torch on.", "टॉर्च चालू केला.") else ok("Torch off.", "टॉर्च बंद केला.")
             } catch (e: Exception) {
                 say("I couldn't use the torch.", "टॉर्च वापरता आला नाही.")
             }
             "wifi" -> switchOnScreen(Intent(Settings.Panel.ACTION_WIFI), on, "Wi-Fi", "वाय-फाय")
             "bluetooth" -> switchOnScreen(Intent(Settings.ACTION_BLUETOOTH_SETTINGS), on, "Bluetooth", "ब्लूटूथ")
             "airplane" -> switchOnScreen(Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS), on, "Airplane mode", "एअरप्लेन मोड")
-            "data" -> { start(Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)); say("Here are your internet settings.", "ही इंटरनेट सेटिंग्ज.") }
-            else -> { start(Intent(Settings.ACTION_WIRELESS_SETTINGS)); say("Here are your network settings.", "ही नेटवर्क सेटिंग्ज.") }
+            "data" -> { start(Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)); ok("Here are your internet settings.", "ही इंटरनेट सेटिंग्ज.") }
+            else -> { start(Intent(Settings.ACTION_WIRELESS_SETTINGS)); ok("Here are your network settings.", "ही नेटवर्क सेटिंग्ज.") }
         }
     }
 
@@ -421,7 +459,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
         if (sw.isChecked != on) sc.clickNode(sw)
         delay(700)
         sc.press("back")
-        if (on) say("$en is on.", "$mr चालू केलं.") else say("$en is off.", "$mr बंद केलं.")
+        if (on) ok("$en is on.", "$mr चालू केलं.") else ok("$en is off.", "$mr बंद केलं.")
     }
 
     private suspend fun alarm(h: Int, m: Int) {
@@ -433,7 +471,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
         )
         val hh = if (h % 12 == 0) 12 else h % 12
         val time = "$hh:${"%02d".format(m)} ${if (h < 12) "AM" else "PM"}"
-        if (ok) say("Alarm set for $time.", "$time चा अलार्म लावला.") else say("I couldn't set the alarm.", "अलार्म लावता आला नाही.")
+        if (ok) ok("Alarm set for $time.", "$time चा अलार्म लावला.") else say("I couldn't set the alarm.", "अलार्म लावता आला नाही.")
     }
 
     private suspend fun timer(seconds: Int) {
@@ -445,17 +483,17 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
         val mins = seconds / 60; val secs = seconds % 60
         val en = listOfNotNull(mins.takeIf { it > 0 }?.let { "$it minute" + if (it > 1) "s" else "" }, secs.takeIf { it > 0 }?.let { "$it seconds" }).joinToString(" ")
         val mr = listOfNotNull(mins.takeIf { it > 0 }?.let { "$it मिनिटे" }, secs.takeIf { it > 0 }?.let { "$it सेकंद" }).joinToString(" ")
-        if (ok) say("Timer set for $en.", "$mr चा टायमर लावला.") else say("I couldn't set the timer.", "टायमर लावता आला नाही.")
+        if (ok) ok("Timer set for $en.", "$mr चा टायमर लावला.") else say("I couldn't set the timer.", "टायमर लावता आला नाही.")
     }
 
     private suspend fun navigate(place: String) {
-        say("Getting directions to $place.", "$place चा रस्ता दाखवत आहे.")
+        ok("Getting directions to $place.", "$place चा रस्ता दाखवत आहे.")
         start(Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=" + Uri.encode(place))).setPackage("com.google.android.apps.maps")) ||
             start(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(place))))
     }
 
     private suspend fun search(q: String, site: String?) {
-        say("Searching for $q.", "$q शोधत आहे.")
+        ok("Searching for $q.", "$q शोधत आहे.")
         val ok = when (site) {
             "youtube" -> start(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(q))))
             "amazon" -> start(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.amazon.in/s?k=" + Uri.encode(q))))
@@ -467,7 +505,7 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
     }
 
     private suspend fun play(q: String, app: String?) {
-        say("Playing $q.", "$q लावत आहे.")
+        ok("Playing $q.", "$q लावत आहे.")
         when (app) {
             "spotify" -> { start(Intent(Intent.ACTION_VIEW, Uri.parse("spotify:search:" + Uri.encode(q)))); return }
             "youtube music" -> { start(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.youtube.com/search?q=" + Uri.encode(q)))); return }
@@ -485,18 +523,18 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
         val am = svc.getSystemService(AudioManager::class.java)
         val ui = AudioManager.FLAG_SHOW_UI
         when (action) {
-            "up" -> { repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, ui) }; say("Volume up.", "आवाज वाढवला.") }
-            "down" -> { repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, ui) }; say("Volume down.", "आवाज कमी केला.") }
-            "max" -> { am.setStreamVolume(AudioManager.STREAM_MUSIC, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC), ui); say("Volume at maximum.", "आवाज पूर्ण केला.") }
+            "up" -> { repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, ui) }; ok("Volume up.", "आवाज वाढवला.") }
+            "down" -> { repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, ui) }; ok("Volume down.", "आवाज कमी केला.") }
+            "max" -> { am.setStreamVolume(AudioManager.STREAM_MUSIC, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC), ui); ok("Volume at maximum.", "आवाज पूर्ण केला.") }
             "silent" -> {
-                say("Phone on vibrate.", "फोन व्हायब्रेटवर ठेवला.")
+                ok("Phone on vibrate.", "फोन व्हायब्रेटवर ठेवला.")
                 try { am.ringerMode = AudioManager.RINGER_MODE_VIBRATE } catch (_: SecurityException) {}
                 am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, 0)
             }
             "unmute" -> {
                 try { am.ringerMode = AudioManager.RINGER_MODE_NORMAL } catch (_: SecurityException) {}
                 am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0)
-                say("Sound is back on.", "आवाज परत चालू केला.")
+                ok("Sound is back on.", "आवाज परत चालू केला.")
             }
         }
     }

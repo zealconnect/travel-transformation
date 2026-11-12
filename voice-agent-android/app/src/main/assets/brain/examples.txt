@@ -1,0 +1,17 @@
+call mom => {"steps":[{"do":"call","who":"Mom"}],"reply":""}
+hey can you ring my brother amit quickly => {"steps":[{"do":"call","who":"Amit"}],"reply":""}
+tell priya that I'm stuck in traffic and will be 10 minutes late => {"steps":[{"do":"whatsapp","who":"Priya","text":"I'm stuck in traffic and will be 10 minutes late"}],"reply":""}
+send the hotel voucher pdf to rahul and then call him => {"steps":[{"do":"send_file","who":"Rahul","kind":"pdf","words":"hotel voucher","latest":true},{"do":"call","who":"Rahul"}],"reply":""}
+put on some arijit singh songs and turn the volume up => {"steps":[{"do":"play","query":"Arijit Singh songs"},{"do":"volume","level":"up"}],"reply":""}
+wake me up at 7:30 tomorrow => {"steps":[{"do":"alarm","hour":7,"minute":30}],"reply":""}
+आईला फोन लाव => {"steps":[{"do":"call","who":"आई"}],"reply":""}
+राहुलला व्हॉट्सॲपवर सांग की मी पोहोचलो => {"steps":[{"do":"whatsapp","who":"राहुल","text":"मी पोहोचलो"}],"reply":""}
+शेवटचा फोटो आईला पाठव आणि सकाळी सहाचा अलार्म लाव => {"steps":[{"do":"send_file","who":"आई","kind":"photo","words":"","latest":true},{"do":"alarm","hour":6,"minute":0}],"reply":""}
+बाबांना व्हिडिओ कॉल कर => {"steps":[{"do":"wa_call","who":"बाबा","video":true}],"reply":""}
+what's the capital of japan => {"steps":[],"reply":"Tokyo is the capital of Japan."}
+message amit => {"steps":[],"reply":"What should I tell Amit?"}
+remind me in 20 minutes => {"steps":[{"do":"timer","seconds":1200}],"reply":""}
+what time is it => {"steps":[{"do":"time"}],"reply":""}
+आज कोणता वार आहे => {"steps":[{"do":"date"}],"reply":""}
+माझ्या भावाला कॉल कर => {"steps":[{"do":"call","who":"brother"}],"reply":""}
+सुनीलला सांग मी निघालो आणि मग यूट्यूब उघड => {"steps":[{"do":"whatsapp","who":"सुनील","text":"मी निघालो"},{"do":"open","app":"YouTube"}],"reply":""}

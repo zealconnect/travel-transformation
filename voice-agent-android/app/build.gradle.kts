@@ -61,15 +61,21 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     packaging { jniLibs { useLegacyPackaging = false } }
+    testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
 kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
 
 dependencies {
     implementation("androidx.core:core-ktx:1.17.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    // Free, offline AI that runs on the phone (optional; only used if you add a model file).
-    implementation("com.google.mediapipe:tasks-genai:0.10.35")
+    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("com.google.android.material:material:1.13.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    // Free AI that runs entirely on the phone (Google LiteRT-LM + Gemma 4). No account, no API key.
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.1")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("androidx.test:core:1.7.0")
+    testImplementation("org.json:json:20250517")
 }

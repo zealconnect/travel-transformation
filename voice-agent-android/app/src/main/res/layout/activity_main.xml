@@ -1,133 +1,196 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true">
 
-    <LinearLayout
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:fitsSystemWindows="true">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="🎤 Voice Agent"
-            android:textSize="26sp"
-            android:textStyle="bold" />
+        <com.google.android.material.appbar.CollapsingToolbarLayout
+            style="?attr/collapsingToolbarLayoutLargeStyle"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/collapsingToolbarLayoutLargeSize"
+            app:layout_scrollFlags="scroll|exitUntilCollapsed|snap">
 
-        <TextView
+            <com.google.android.material.appbar.MaterialToolbar
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:elevation="0dp"
+                app:layout_collapseMode="pin"
+                app:title="Voice Agent" />
+        </com.google.android.material.appbar.CollapsingToolbarLayout>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Free. No API key. Talks English and मराठी."
-            android:textSize="14sp" />
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="32dp">
 
-        <TextView
-            android:id="@+id/status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:lineSpacingExtra="4dp"
-            android:textSize="15sp" />
+            <!-- Status -->
+            <com.google.android.material.card.MaterialCardView style="@style/Card"
+                android:layout_marginTop="4dp"
+                app:cardBackgroundColor="?attr/colorPrimaryContainer">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:gravity="center_vertical" android:orientation="horizontal">
+                        <ImageView android:layout_width="48dp" android:layout_height="48dp"
+                            android:background="@drawable/bg_status_icon" android:padding="12dp"
+                            android:src="@drawable/ic_mic_tinted" android:importantForAccessibility="no" />
+                        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp" android:layout_weight="1" android:orientation="vertical">
+                            <TextView android:id="@+id/statusTitle" android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceTitleLarge"
+                                android:textColor="?attr/colorOnPrimaryContainer" />
+                            <TextView android:id="@+id/statusSub" android:layout_width="match_parent"
+                                android:layout_height="wrap_content" android:layout_marginTop="2dp"
+                                android:textAppearance="?attr/textAppearanceBodyMedium"
+                                android:textColor="?attr/colorOnPrimaryContainer" />
+                        </LinearLayout>
+                    </LinearLayout>
+                    <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginVertical="16dp" />
+                    <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/swEnabled"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Always listening" android:textAppearance="?attr/textAppearanceTitleMedium"
+                        android:textColor="?attr/colorOnPrimaryContainer" />
+                    <TextView android:id="@+id/enabledSub" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnPrimaryContainer" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-        <Switch android:id="@+id/swEnabled"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="16dp" android:padding="12dp"
-            android:text="Enable: always listening" android:textSize="20sp" android:textStyle="bold" />
-        <TextView android:id="@+id/tvEnabledHint" style="@style/Hint" />
+            <!-- Setup -->
+            <com.google.android.material.card.MaterialCardView android:id="@+id/setupCard" style="@style/Card">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <TextView style="@style/CardTitle" android:text="Finish setup" />
+                    <LinearLayout android:id="@+id/setupRows" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="vertical" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-        <TextView style="@style/Section" android:text="Setup (one time)" />
+            <!-- Brain -->
+            <com.google.android.material.card.MaterialCardView style="@style/Card">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:gravity="center_vertical" android:orientation="horizontal">
+                        <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                            android:src="@drawable/ic_sparkle" android:importantForAccessibility="no" />
+                        <TextView style="@style/CardTitle" android:layout_marginStart="12dp"
+                            android:text="Understanding" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/brainText" style="@style/Body" android:layout_marginTop="8dp" />
+                    <com.google.android.material.progressindicator.LinearProgressIndicator android:id="@+id/brainProgress"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp" android:visibility="gone" app:trackCornerRadius="4dp" />
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp" android:gravity="end" android:orientation="horizontal">
+                        <Button android:id="@+id/btnBrainRemove" style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Remove" />
+                        <Button android:id="@+id/btnBrain" style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp" android:text="Download · 2.6 GB"
+                            app:icon="@drawable/ic_download" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-        <Button android:id="@+id/btnPerms" style="@style/Btn"
-            android:text="1. Allow microphone, contacts, calls and notifications" />
-        <Button android:id="@+id/btnFiles" style="@style/Btn"
-            android:text="2. Allow access to files (for sending files)" />
-        <Button android:id="@+id/btnStart" style="@style/Btn"
-            android:text="3. Start Voice Agent" />
-        <TextView style="@style/Hint"
-            android:text="A small “Voice Agent” notification stays while it runs, with a 🎤 Talk button. After restarting your phone, open this app once to start it again." />
-        <Button android:id="@+id/btnAssistant" style="@style/Btn"
-            android:text="4. Make Voice Agent your digital assistant (recommended)" />
-        <TextView style="@style/Hint"
-            android:text="Tap “Digital assistant app” → Voice Agent. Then hold the power button to talk, and “Agent, …” can open WhatsApp and other apps by itself. (This replaces Gemini/Google Assistant on the power button; you can switch back any time on the same page.)" />
-        <Button android:id="@+id/btnOverlay" style="@style/Btn"
-            android:text="5. Optional: floating 🎤 button (Display over other apps)" />
-        <TextView style="@style/Hint"
-            android:text="Some phones block this for apps not from the Play Store. Skip it if it says “denied”; everything else works without it." />
+            <!-- Preferences -->
+            <com.google.android.material.card.MaterialCardView style="@style/Card">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <TextView style="@style/CardTitle" android:text="Preferences" />
 
-        <LinearLayout android:id="@+id/fullSetup" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
-            <Button android:id="@+id/btnRestricted" style="@style/Btn"
-                android:text="5. Allow restricted settings (full version)" />
-            <TextView style="@style/Hint"
-                android:text="On the App info page tap ⋮ (top right) → Allow restricted settings. If you don't see ⋮ yet, try step 6 first, then come back." />
-            <Button android:id="@+id/btnA11y" style="@style/Btn"
-                android:text="6. Turn on screen control in Accessibility (full version)" />
-            <TextView style="@style/Hint"
-                android:text="Lets the agent press Send, flip switches and use Share buttons for you." />
+                    <TextView style="@style/Label" android:layout_marginTop="12dp" android:text="Language" />
+                    <com.google.android.material.button.MaterialButtonToggleGroup android:id="@+id/langGroup"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" app:selectionRequired="true" app:singleSelection="true">
+                        <Button android:id="@+id/langEn" style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:text="English" />
+                        <Button android:id="@+id/langMr" style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:text="मराठी" />
+                    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                    <TextView style="@style/Label" android:text="Spoken replies" />
+                    <com.google.android.material.button.MaterialButtonToggleGroup android:id="@+id/talkGroup"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" app:selectionRequired="true" app:singleSelection="true">
+                        <Button android:id="@+id/talkMinimal" style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:text="Only when needed" />
+                        <Button android:id="@+id/talkFull" style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:text="Confirm everything" />
+                    </com.google.android.material.button.MaterialButtonToggleGroup>
+                    <TextView style="@style/Body" android:text="“Only when needed” answers questions and reports problems; otherwise a short vibration tells you it's done." />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp" android:hint="Wake word"
+                        app:helperText="Say it before a command: “Agent, call Mom”">
+                        <com.google.android.material.textfield.TextInputEditText android:id="@+id/etWake"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textCapWords" android:maxLength="20" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/swScreenOff"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp" android:text="Listen when the screen is off" />
+                    <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/swAutoSend"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Press Send for me" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp" android:hint="Country code for WhatsApp numbers"
+                        app:prefixText="+">
+                        <com.google.android.material.textfield.TextInputEditText android:id="@+id/etCc"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="number" android:maxLength="4" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Try it -->
+            <com.google.android.material.card.MaterialCardView style="@style/Card">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <TextView style="@style/CardTitle" android:text="Try a command" />
+                    <com.google.android.material.textfield.TextInputLayout android:id="@+id/tilTry"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp" android:hint="e.g. tell Priya I'll be late"
+                        app:endIconDrawable="@drawable/ic_send" app:endIconMode="custom"
+                        app:endIconContentDescription="Run">
+                        <com.google.android.material.textfield.TextInputEditText android:id="@+id/etTry"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:imeOptions="actionSend" android:inputType="text" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                    <Button android:id="@+id/btnExamples" style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp" android:text="What can I say?" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView android:id="@+id/footer" style="@style/Body" android:layout_marginTop="20dp"
+                android:gravity="center" android:textAppearance="?attr/textAppearanceBodySmall" />
         </LinearLayout>
-
-        <TextView style="@style/Section" android:text="Settings" />
-
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" android:gravity="center_vertical" android:orientation="horizontal">
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                android:text="Wake word (what you call it)" />
-            <EditText android:id="@+id/etWake" android:layout_width="140dp" android:layout_height="wrap_content"
-                android:inputType="textCapWords" android:maxLength="20" />
-        </LinearLayout>
-        <TextView style="@style/Hint"
-            android:text="Pick a name that's easy to say and rarely used in normal talk. “Agent” also works when you speak Marathi (एजंट)." />
-
-        <Switch android:id="@+id/swScreenOff"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" android:textSize="16sp"
-            android:text="Keep listening when the screen is off (uses more battery)" />
-
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" android:text="Language I listen and reply in" />
-        <RadioGroup android:id="@+id/lang"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <RadioButton android:id="@+id/langEn" android:layout_width="wrap_content"
-                android:layout_height="wrap_content" android:text="English" />
-            <RadioButton android:id="@+id/langMr" android:layout_width="wrap_content"
-                android:layout_height="wrap_content" android:layout_marginStart="24dp" android:text="मराठी" />
-        </RadioGroup>
-        <TextView style="@style/Hint"
-            android:text="You can also switch by voice: say “speak Marathi” or “इंग्रजीत बोल”." />
-
-        <Switch android:id="@+id/swAutoSend"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" android:textSize="16sp"
-            android:text="Press Send automatically on WhatsApp and SMS" />
-
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" android:gravity="center_vertical" android:orientation="horizontal">
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                android:text="Country code for WhatsApp numbers" />
-            <EditText android:id="@+id/etCc" android:layout_width="80dp" android:layout_height="wrap_content"
-                android:inputType="number" android:maxLength="4" />
-        </LinearLayout>
-
-        <TextView style="@style/Section" android:text="Free offline AI (optional)" />
-        <TextView android:id="@+id/tvModel" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="6dp" />
-        <TextView style="@style/Hint"
-            android:text="Everyday commands work without this. Add a Gemma model file (.task) so the agent can also handle unusual requests and work inside other apps. It runs on your phone with no internet and no cost. See the README for where to download it." />
-        <Button android:id="@+id/btnModel" style="@style/Btn" android:text="Choose model file (.task)" />
-        <Button android:id="@+id/btnRemoveModel" style="@style/Btn" android:text="Remove model" />
-
-        <TextView style="@style/Section" android:text="Try a command by typing" />
-        <EditText android:id="@+id/etTest" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:hint="e.g. call Mom" android:inputType="text" />
-        <Button android:id="@+id/btnTest" style="@style/Btn" android:text="Run" />
-
-        <TextView style="@style/Section" android:text="How to use" />
-        <TextView android:id="@+id/tvHelp" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="6dp"
-            android:lineSpacingExtra="4dp" android:textIsSelectable="true" />
-    </LinearLayout>
-</ScrollView>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

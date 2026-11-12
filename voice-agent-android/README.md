@@ -1,155 +1,102 @@
-# 🎤 Voice Agent (Android)
+# Voice Agent (Android)
 
-Talk to your phone in **English or Marathi** and it does the work: calls, WhatsApp messages, calls and files, apps, alarms, the torch, Wi-Fi and more.
+Talk to your phone the way you normally speak, in **English, Marathi or a mix**, and it does the work: calls, WhatsApp messages, calls and files, apps, music, maps, alarms, the torch and more. It can handle **several requests in one sentence**.
 
-It is **free**. No API key, no account and no paid service. It uses only what's built into Android:
+It is **free and private**:
 
 | Part | What does it | Cost |
 |---|---|---|
-| Listening | Android speech recognition (`SpeechRecognizer`) | Free |
+| Understanding | Google's **Gemma 4** AI model running **on the phone** (LiteRT-LM) | Free, no account, works offline |
+| Listening | Android speech recognition | Free |
 | Talking back | Android text-to-speech | Free |
-| Understanding commands | Built-in English + Marathi command patterns | Free, offline |
-| Doing things | Android intents: calls, WhatsApp chats/calls, sharing files, apps, alarms… | Free |
-| Unusual requests (optional) | Gemma AI model running **on the phone** (Google MediaPipe) | Free, offline |
+| Doing things | Android intents: calls, WhatsApp, sharing files, apps, alarms… | Free |
 
-Built and tested for a **Pixel 7** (Android 11 or newer works).
+Built for a **Pixel 7** (Android 11 or newer works; the AI needs about 6 GB of RAM or more).
 
----
+## Install
+
+1. Download **`release/VoiceAgent.apk`** on the phone and install it. Play Protect doesn't block this version.
+2. Open **Voice Agent**. The *Finish setup* card lists what's left:
+   - **Microphone, contacts & calls**
+   - **Files** (to send files, photos and PDFs)
+   - **Make it your assistant** (recommended): *Digital assistant app → Voice Agent*. Then holding the power button starts it, and the wake word can open apps directly. This replaces Gemini on the power button; switch back on the same settings page any time.
+3. Under **Understanding**, tap **Download · 2.6 GB**. Use Wi-Fi; it continues in the background.
+4. Turn on **Always listening**, then say "**Agent, …**".
+
+## Using it
+
+- **Wake word:** "Agent, tell Priya I'll be 10 minutes late" / "एजंट, आईला फोन लाव". Change "Agent" in Preferences.
+- **Without the wake word:** hold the power button (once it's your assistant), tap the **Voice Agent** tile in Quick Settings, tap **Talk** in its notification, or long-press the app icon → **Talk**.
+- **Discreet by design:** nothing floats on your screen. While it listens, a thin coloured glow appears at the bottom edge, and a short vibration confirms when it's done. It speaks only to answer a question, ask something it needs, or report a problem (*Spoken replies → Only when needed*). Choose *Confirm everything* if you want spoken confirmations.
+- **Pause / resume:** the switch in the app, *Pause* in the notification, or say "Agent, stop listening".
+
+### Examples
+
+| English / Hinglish | मराठी |
+|---|---|
+| Tell Priya I'm stuck in traffic and will be 10 minutes late | प्रियाला सांग की आज मीटिंग पाच वाजता आहे |
+| Send the hotel voucher PDF to Rahul and then call him | शेवटचा फोटो राहुलला पाठव आणि सकाळी सहाचा अलार्म लाव |
+| Mom ko call karo · WhatsApp video call Dad | बाबांना व्हिडिओ कॉल कर · माझ्या भावाला कॉल कर |
+| Put on some Arijit Singh and turn the volume up | यूट्यूबवर मराठी गाणी लाव |
+| Remind me in 20 minutes · Wake me up at 6:30 | १० मिनिटांचा टायमर लाव |
+| Switch off Wi-Fi and Bluetooth · Torch on | टॉर्च चालू कर · आवाज कमी कर |
+| What's 18% of 2500? · What time is it? | किती वाजले · आज कोणता वार आहे |
+
+If something essential is missing ("message Amit"), it asks ("What should I tell Amit?").
+
+## How it understands
+
+1. **Obvious one-liners** ("torch on", "what time is it") run instantly from fixed patterns.
+2. **Everything else** goes to Gemma 4 on the phone. Its instructions are cached once, so each command only processes what you said. In testing on a desktop processor that took about 1.5–3 seconds per command; speed on the phone depends on its GPU, and the first load after starting takes several seconds.
+3. The app **double-checks the model** where small models slip: durations and alarm times are recalculated from your words, and a simple extra request the model skipped ("…आणि मग टॉर्च चालू कर") is added back.
+4. **Without the brain installed,** only the fixed English/Marathi phrases work.
+
+The instructions the model follows are in `app/src/main/assets/brain/`. They were tested against the exact model file the app downloads, on 31 English, Marathi and Hinglish commands.
 
 ## Two versions
 
 | | **VoiceAgent.apk** (use this) | VoiceAgent-full.apk |
 |---|---|---|
-| Install from the phone | ✅ Play Protect doesn't block it | ❌ Blocked ("App blocked to protect your device") |
-| Install from a computer (`adb install`) | ✅ | ✅ |
-| Calls, WhatsApp calls, apps, alarms, torch, volume, maps, music, time… | ✅ Fully hands-free | ✅ |
-| WhatsApp/SMS messages and files | Opens the chat with everything ready; **you tap Send** | Presses Send for you |
-| "Send this to Mom" (Share button of the open app), read the screen, go back, screenshot, lock | ❌ | ✅ |
+| Install from the phone | ✅ | ❌ Play Protect blocks it |
+| WhatsApp / SMS messages and files | Opens ready to send; **you tap Send** | Presses Send for you |
 | Wi-Fi / Bluetooth | Opens the switch; you tap it | Flips it for you |
-| AI working inside other apps | ❌ | ✅ |
+| "Send this to Mom" (Share button of the open app), read the screen, go back, lock | ❌ | ✅ |
 
-Why: Play Protect blocks apps installed from a browser if they use **Accessibility**, the only way an app can press buttons inside other apps. The main version doesn't use it, so it installs normally. Both can be installed side by side.
+The full version needs Accessibility, which Play Protect blocks for apps installed from a browser. Install it from a computer: `adb install release/VoiceAgent-full.apk`.
 
-## Install it on your phone
+When a request has several steps and one of them waits for you to tap Send, the following steps that would open another app wait in your notifications, so nothing covers the message you're about to send.
 
-1. On the phone, download **`release/VoiceAgent.apk`** and open it. Allow "Install unknown apps" for your browser or Files app when asked.
-   If Play Protect shows a softer warning with **Install anyway**, tap that.
-2. Open **Voice Agent** and do the setup steps:
-   1. **Allow microphone, contacts, calls and notifications**
-   2. **Allow access to files**: turn on *Allow access to manage all files* (to find and send files).
-   3. **Start Voice Agent**: a small "Voice Agent" notification appears, with a 🎤 **Talk** button.
-   4. **Make Voice Agent your digital assistant** (recommended): *Digital assistant app* → Voice Agent.
-      Then **hold the power button** to talk, and "Agent, …" can open WhatsApp and other apps by itself. This replaces Gemini/Google Assistant on the power button; switch back on the same page any time.
-   5. *Optional:* the floating 🎤 button ("Display over other apps"). Many phones deny this for apps not from the Play Store. Skip it if so; everything works without it.
-3. Turn on **Enable: always listening** at the top if you want hands-free.
+## Limits
 
-**Ways to talk to it:** hold the power button (step 4) · say "Agent …" (when enabled) · the **Voice Agent** Quick Settings tile · **🎤 Talk** in the notification · long-press the app icon → **Talk** · the floating 🎤 (if allowed).
-
-Without step 4, Android doesn't let a background app open other apps. When you use the wake word, the agent then puts a "Tap to continue" notification up instead. Phone calls always work directly.
-
-After restarting the phone, open the app once and it starts again.
-
-For Marathi replies, make sure Marathi voice data is installed:
-Settings → System → Languages → Text-to-speech output → Speech Services by Google ⚙ → Install voice data → मराठी.
-
-### Full version (optional, from a computer)
-
-Connect the phone with USB debugging on and run `adb install release/VoiceAgent-full.apk`. Then in that app: **Allow restricted settings** (App info → ⋮) and **turn on screen control in Accessibility**.
-
-## Using it
-
-### Enable / Disable (always listening)
-
-| | What happens | 🎤 button |
-|---|---|---|
-| **Enabled** | Always listening. Say **"Agent, call Mom"** any time, with no tap. Or say **"Agent"**, wait for "Yes?", then speak. In Marathi: **"एजंट, आईला फोन लाव"**. | 🟢 green |
-| **Disabled** | Not listening in the background. Tap 🎤 to give one command. | ⚪ grey |
-
-Ways to switch:
-- The big **Enable: always listening** switch at the top of the app
-- **Double-tap 🎤**
-- The **Voice Agent** Quick Settings tile (swipe down twice from the top; add it via ✏️ the first time)
-- The **Disable / Enable** button in the "Voice Agent" notification (**Quit** there stops the agent completely)
-- By voice: "**Agent, stop listening**" / "**एजंट, ऐकणं बंद कर**" to disable; tap 🎤 and say "**start listening**" / "**ऐकणं सुरू कर**" to enable
-
-It only acts on sentences that **start with the wake word**, so TV and conversations around you are ignored. You can change the wake word in the app (pick something easy to say that you don't use often). While enabled it pauses during phone calls and, by default, while the screen is off. Turn on "Keep listening when the screen is off" if you want that, though it uses more battery.
-
-### Other controls
-
-- **Tap 🎤** → speak one command now (it beeps and turns red 👂). Tap again (⏹) to stop a task.
-- **Long-press 🎤** → settings screen. **Drag** it anywhere.
-- Switch language in the app or by voice: "speak Marathi" / "इंग्रजीत बोल".
-
-### Things you can say
-
-| English | मराठी |
-|---|---|
-| Call Mom · Call 98765 43210 | आईला फोन लाव |
-| Send hello to Rahul on WhatsApp | राहुलला व्हॉट्सॲपवर मेसेज पाठव की मी पोहोचलो |
-| Tell Priya I'm running late | प्रियाला सांग की मी उशिरा येतोय |
-| Message Amit on WhatsApp *(asks what to say)* | अमितला मेसेज पाठव |
-| Send the latest PDF to Rahul on WhatsApp | शेवटची पीडीएफ राहुलला व्हॉट्सॲपवर पाठव |
-| Share the last photo with Priya | शेवटचा फोटो प्रियाला पाठव |
-| Send the file named budget to Amit | बजेट नावाची फाईल अमितला पाठव |
-| Send this to Mom *(uses the Share button of the open app)* | हा फोटो आईला पाठव |
-| WhatsApp video call Dad | बाबांना व्हिडिओ कॉल कर |
-| Send an SMS to Rahul saying I'll call later | राहुलला एसएमएस पाठव की नंतर फोन करतो |
-| Open YouTube · Play Arijit songs | यूट्यूब उघड · यूट्यूबवर मराठी गाणी लाव |
-| Search hotels in Goa · Navigate to Pune station | पुणे स्टेशनचा रस्ता दाखव |
-| Turn on the torch · Turn off Wi-Fi · Bluetooth on | टॉर्च चालू कर · वायफाय बंद कर |
-| Volume up · Silent | आवाज वाढव · फोन सायलेंट कर |
-| Set an alarm for 6:30 AM · Timer for 10 minutes | सकाळी साडे सहाचा अलार्म लाव · १० मिनिटांचा टायमर लाव |
-| What's the time · Battery · Read the screen | किती वाजले · बॅटरी किती आहे · स्क्रीनवर काय आहे वाचून दाखव |
-| Take a screenshot · Go back · Go home · Lock the phone | स्क्रीनशॉट घे · मागे जा · फोन लॉक कर |
-| Help · Stop | मदत · थांब |
-
-**Names:** contacts saved in English are found from Marathi speech ("राहुलला" → *Rahul Sharma*), and "Aai/आई" ↔ "Mom", "Baba/बाबा" ↔ "Dad" and similar work both ways. If two contacts match, it asks which one.
-**Files** are searched across the phone (Downloads, WhatsApp media, camera, documents) by type, by words in the file name, and newest first.
-**Sending:** by default it presses WhatsApp/SMS *Send* for you. Turn off "Press Send automatically" in the app if you'd rather check first.
-
-## Optional: free offline AI for everything else
-
-The built-in commands cover everyday tasks. For anything else ("like the first post on Instagram", "what's the capital of Japan"), you can add a free AI model that runs **on the phone**, with no internet and no key:
-
-1. On the phone, open <https://huggingface.co/litert-community/Gemma3-1B-IT>, sign in (free) and accept the Gemma license.
-2. Download a **`.task`** file, for example `gemma3-1b-it-int4.task` (about 550 MB).
-3. In Voice Agent → **Choose model file (.task)** → pick it. Done.
-
-Anything the built-in commands don't recognise then goes to this model. It either picks one of the actions above or works inside apps step by step (reading the screen, tapping, typing). It asks before tapping anything like *Pay*, *Buy* or *Delete*. A 1B model is small, so it's slower and makes more mistakes than the built-in commands. Bigger Gemma `.task` models also work on a Pixel 7 but are slower.
-
-## What it can't do (Android limits)
-
-- **Main version:** it can't press buttons inside other apps, so you tap *Send* yourself (see the table above).
-- **Always listening costs some battery**, as the phone keeps recognising speech. Disable it when you don't need it.
-- **Full version:** WhatsApp has no official way to send silently. The agent taps *Send* on screen, and a WhatsApp update that renames buttons can break this until the app is updated.
-- **Password fields:** it never types into them. **Banking/UPI apps** often block screen control.
+- **Speech recognition** is done by Google's speech service on the phone (online or on-device, depending on the language). Understanding runs fully on the phone.
+- Android shows its green microphone dot while Voice Agent listens; apps can't hide it.
+- **Always listening uses battery.** By default it pauses while the screen is off and during calls.
+- The AI uses about 2–3 GB of memory while loaded. It unloads after 20 minutes without use, or when the phone needs the memory.
 - **Not on the Play Store.** It's meant for your own phone.
 
-## Build it yourself
-
-Open this folder in Android Studio and press ▶, or:
+## Build
 
 ```bash
-./gradlew assembleLiteDebug     # main version → app/build/outputs/apk/lite/debug/
-./gradlew assembleFullDebug     # full version (screen control) → app/build/outputs/apk/full/debug/
-./gradlew testLiteDebugUnitTest # English + Marathi command and wake-word tests
+./gradlew assembleLiteDebug      # main version → app/build/outputs/apk/lite/debug/
+./gradlew assembleFullDebug      # full version → app/build/outputs/apk/full/debug/
+./gradlew testLiteDebugUnitTest  # command, wake-word and AI-reply tests, plus screenshots in app/build/screenshots/
 ```
 
-The app is signed with `app/voiceagent.keystore` (kept in the repo on purpose), so new builds install over old ones without losing settings.
+Signed with `app/voiceagent.keystore` (kept in the repo on purpose), so new builds install over old ones.
 
-## Code map
-
-`app/src/main/java/com/example/voiceagent/` (both versions):
+## Code map (`app/src/main/java/com/example/voiceagent/`)
 
 | File | Job |
 |---|---|
-| `AgentService.kt` | The agent: floating 🎤 button, notification, always-listening, running commands, opening apps |
-| `Voice.kt` | Listening and speaking (Android built-ins) |
-| `CommandParser.kt` | English + Marathi sentences → commands |
-| `Actions.kt` | Does each command (calls, WhatsApp, files, settings, media…) |
-| `Contacts.kt`, `FileFinder.kt`, `Text.kt` | Finding people and files; Marathi→Latin spelling, "sounds-alike" matching, wake word |
-| `Agent.kt`, `LocalBrain.kt` | Fallback to the optional on-phone AI, and its step-by-step screen control |
-| `Screen.kt` | The screen-control interface (empty in the main version) |
-| `MainActivity.kt`, `AgentTileService.kt`, `Prefs.kt` | Setup screen, Quick Settings tile, saved settings |
+| `AgentService.kt` | The agent in the background: wake word, sessions, haptics, notification |
+| `Agent.kt` | Instant patterns vs. the AI, follow-up questions, step-by-step screen control (full) |
+| `Brain.kt` | Gemma 4 on the phone (LiteRT-LM), cached instructions, checking its answers |
+| `ModelDownload.kt` | One-tap download of the AI model |
+| `Actions.kt` | Does each step (calls, WhatsApp, files, settings, media…) |
+| `CommandParser.kt`, `Text.kt` | Fixed English/Marathi patterns, Marathi→Latin spelling, wake word |
+| `Contacts.kt`, `FileFinder.kt` | Finding people (incl. "Mom"/"आई", "brother"/"भाऊ") and files |
+| `Voice.kt` | Listening and speaking |
+| `TalkActivity.kt`, `GlowView.kt`, `Assistant.kt`, `AgentTileService.kt` | Ways to start talking, and the bottom-edge glow |
+| `MainActivity.kt`, `Prefs.kt` | The Material 3 settings screen |
 
-`app/src/full/`: `AgentAccessibilityService.kt` (screen control), included only in the full version.
+`app/src/full/`: `AgentAccessibilityService.kt` (screen control), full version only.

@@ -1,7 +1,6 @@
 package com.example.voiceagent
 
 import android.content.Context
-import java.io.File
 
 /** Settings you choose on the app screen. */
 object Prefs {
@@ -22,6 +21,10 @@ object Prefs {
     fun wakeWord(c: Context): String = sp(c).getString("wake", "Agent")?.trim()?.ifEmpty { "Agent" } ?: "Agent"
     fun setWakeWord(c: Context, w: String) = sp(c).edit().putString("wake", w.trim()).apply()
 
+    /** "minimal": speak only answers, questions and problems. "full": also confirm each action. */
+    fun talkBack(c: Context): String = sp(c).getString("talkback", "minimal") ?: "minimal"
+    fun setTalkBack(c: Context, v: String) = sp(c).edit().putString("talkback", v).apply()
+
     /** Keep listening while the screen is off (uses more battery). */
     fun listenScreenOff(c: Context) = sp(c).getBoolean("screen_off", false)
     fun setListenScreenOff(c: Context, on: Boolean) = sp(c).edit().putBoolean("screen_off", on).apply()
@@ -39,9 +42,9 @@ object Prefs {
     fun autoSend(c: Context) = sp(c).getBoolean("auto_send", true)
     fun setAutoSend(c: Context, on: Boolean) = sp(c).edit().putBoolean("auto_send", on).apply()
 
-    /** The optional offline AI model file. */
-    fun modelPath(c: Context): String? = sp(c).getString("model", null)?.takeIf { File(it).exists() }
-    fun setModelPath(c: Context, path: String?) = sp(c).edit().putString("model", path).apply()
+    /** Id of a running brain download (DownloadManager), or -1. */
+    fun downloadId(c: Context): Long = sp(c).getLong("dl", -1)
+    fun setDownloadId(c: Context, id: Long) = sp(c).edit().putLong("dl", id).apply()
 }
 
 /** Pick the English or Marathi sentence, matching the chosen language. */
