@@ -5,7 +5,7 @@ import android.content.Context
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 
-/** A Quick Settings tile (swipe down from the top) to switch the agent on or off. */
+/** Quick Settings tile (swipe down from the top): Enable / Disable always-listening. */
 class AgentTileService : TileService() {
 
     companion object {
@@ -31,8 +31,8 @@ class AgentTileService : TileService() {
         }
         tile.subtitle = when {
             !serviceOn -> "Turn on in Accessibility"
-            Prefs.enabled(this) -> "On"
-            else -> "Off"
+            Prefs.enabled(this) -> "Listening"
+            else -> "Disabled"
         }
         tile.updateTile()
     }

@@ -12,6 +12,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,6 +32,9 @@ class Voice(private val ctx: Context, private val lang: () -> String) {
     private var tts: TextToSpeech? = null
     private val ttsReady = CompletableDeferred<Boolean>()
     private var recognizer: SpeechRecognizer? = null
+    private var pending: CancellableContinuation<String?>? = null
+    /** On-device recognition for background listening; switched off if the phone lacks that language offline. */
+    private var offlineOk = true
     private val main = Handler(Looper.getMainLooper())
 
     /** Last SpeechRecognizer error code, so we can explain problems like a missing mic permission. */
@@ -82,15 +86,21 @@ class Voice(private val ctx: Context, private val lang: () -> String) {
         } catch (_: Exception) {}
     }
 
-    /** Listen for one sentence. Returns null if nothing was understood. */
-    suspend fun listen(): String? = withContext(Dispatchers.Main) {
+    /**
+     * Listen for one sentence. Returns null if nothing was understood.
+     * [passive] = quiet background listening for the wake word (no beep, on-device when possible).
+     */
+    suspend fun listen(passive: Boolean = false): String? = withContext(Dispatchers.Main) {
         lastError = 0
         if (!SpeechRecognizer.isRecognitionAvailable(ctx)) {
             lastError = SpeechRecognizer.ERROR_CLIENT
             return@withContext null
         }
-        beep()
-        delay(180)
+        if (!passive) {
+            beep()
+            delay(180)
+        }
+        val offline = passive && offlineOk
         val r = SpeechRecognizer.createSpeechRecognizer(ctx)
         recognizer = r
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -98,7 +108,8 @@ class Voice(private val ctx: Context, private val lang: () -> String) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang())
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, lang())
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, if (passive) 1000L else 1500L)
+            if (offline) putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         }
         try {
             withTimeoutOrNull(25_000) {
@@ -110,6 +121,8 @@ class Voice(private val ctx: Context, private val lang: () -> String) {
                         }
                         override fun onError(error: Int) {
                             lastError = error
+                            if (offline && (error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ||
+                                    error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE)) offlineOk = false
                             if (cont.isActive) cont.resume(null)
                         }
                         override fun onReadyForSpeech(p: Bundle?) {}
@@ -120,19 +133,31 @@ class Voice(private val ctx: Context, private val lang: () -> String) {
                         override fun onPartialResults(b: Bundle?) {}
                         override fun onEvent(t: Int, b: Bundle?) {}
                     })
+                    pending = cont
                     r.startListening(intent)
                     cont.invokeOnCancellation { main.post { try { r.cancel() } catch (_: Exception) {} } }
                 }
             }
         } finally {
+            pending = null
             try { r.destroy() } catch (_: Exception) {}
             if (recognizer === r) recognizer = null
         }
     }
 
+    /** Stop any listening right away (the waiting listen() returns null). */
+    fun cancelListening() {
+        val r = recognizer
+        val run = Runnable {
+            try { r?.cancel() } catch (_: Exception) {}
+            pending?.let { if (it.isActive) it.resume(null) }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) run.run() else main.post(run)
+    }
+
     fun stopAll() {
         tts?.stop()
-        recognizer?.let { r -> main.post { try { r.cancel() } catch (_: Exception) {} } }
+        cancelListening()
     }
 
     fun shutdown() {

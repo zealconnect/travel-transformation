@@ -22,7 +22,7 @@ Built and tested for a **Pixel 7** (Android 11 or newer works).
    Allow "Install unknown apps" for your browser or Files app when asked.
    If Play Protect warns that the app isn't from the Play Store, choose **Install anyway**. The warning appears because the app uses Accessibility.
 2. Open **Voice Agent** and go through the 4 setup buttons:
-   1. **Allow microphone, contacts and calls**
+   1. **Allow microphone, contacts, calls and notifications**
    2. **Allow access to files**: turn on *Allow access to manage all files* (needed to find and send files).
    3. **Allow restricted settings**: on the App info page tap **⋮** (top right) → **Allow restricted settings**.
       Android hides this ⋮ option until you've tried step 4 once, so if it isn't there, do step 4, then come back.
@@ -34,10 +34,26 @@ Settings → System → Languages → Text-to-speech output → Speech Services 
 
 ## Using it
 
-- **Tap 🎤** → speak (it beeps and turns red 👂 while listening). Tap again (⏹) to stop it mid-task.
-- **Double-tap 🎤** → agent on/off (💤 when off). You can also say "turn off yourself".
+### Enable / Disable (always listening)
+
+| | What happens | 🎤 button |
+|---|---|---|
+| **Enabled** | Always listening. Say **"Agent, call Mom"** any time, with no tap. Or say **"Agent"**, wait for "Yes?", then speak. In Marathi: **"एजंट, आईला फोन लाव"**. | 🟢 green |
+| **Disabled** | Not listening in the background. Tap 🎤 to give one command. | ⚪ grey |
+
+Ways to switch:
+- The big **Enable: always listening** switch at the top of the app
+- **Double-tap 🎤**
+- The **Voice Agent** Quick Settings tile (swipe down twice from the top; add it via ✏️ the first time)
+- The **Disable** button in the "Voice Agent is listening" notification
+- By voice: "**Agent, stop listening**" / "**एजंट, ऐकणं बंद कर**" to disable; tap 🎤 and say "**start listening**" / "**ऐकणं सुरू कर**" to enable
+
+It only acts on sentences that **start with the wake word**, so TV and conversations around you are ignored. You can change the wake word in the app (pick something easy to say that you don't use often). While enabled it pauses during phone calls and, by default, while the screen is off. Turn on "Keep listening when the screen is off" if you want that, though it uses more battery.
+
+### Other controls
+
+- **Tap 🎤** → speak one command now (it beeps and turns red 👂). Tap again (⏹) to stop a task.
 - **Long-press 🎤** → settings screen. **Drag** it anywhere.
-- Quick Settings tile **Voice Agent** → on/off.
 - Switch language in the app or by voice: "speak Marathi" / "इंग्रजीत बोल".
 
 ### Things you can say
@@ -79,7 +95,7 @@ Anything the built-in commands don't recognise then goes to this model. It eithe
 
 ## What it can't do (Android limits)
 
-- **No "Hey…" wake word.** You tap the 🎤 button, because always-on listening would drain the battery and Android restricts it.
+- **Always listening costs some battery**, as the phone keeps recognising speech. Disable it when you don't need it.
 - **WhatsApp has no official way to send silently.** The agent opens the chat with the message or file ready and taps *Send* for you. A WhatsApp update that renames buttons can break this until the app is updated.
 - **Password fields:** it refuses to type into them.
 - **Banking/UPI apps** often block Accessibility on their screens.
@@ -102,6 +118,7 @@ The app is signed with `app/voiceagent.keystore` (kept in the repo on purpose), 
 |---|---|
 | `AgentAccessibilityService.kt` | Floating 🎤 button, reads the screen, taps, types, scrolls, opens apps |
 | `Voice.kt` | Listening and speaking (Android built-ins) |
+| `ListeningService.kt` | "Voice Agent is listening" notification with a Disable button (keeps the mic allowed in the background) |
 | `CommandParser.kt` | English + Marathi sentences → commands |
 | `Actions.kt` | Does each command (calls, WhatsApp, files, settings, media…) |
 | `Contacts.kt`, `FileFinder.kt`, `Text.kt` | Finding people and files; Marathi→Latin spelling and "sounds-alike" matching |

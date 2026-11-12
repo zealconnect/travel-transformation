@@ -79,6 +79,7 @@ class AgentAccessibilityService : AccessibilityService() {
         showBubble()
         setState(State.IDLE)
         AgentTileService.refresh(this)
+        updateHandsFree()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
@@ -86,6 +87,8 @@ class AgentAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         instance = null
+        passive?.cancel()
+        ListeningService.stop(this)
         stop()
         removeBubble()
         if (::voice.isInitialized) voice.shutdown()
@@ -96,29 +99,81 @@ class AgentAccessibilityService : AccessibilityService() {
 
     // ---------------------------------------------------------------- sessions
 
-    /** Bubble tap: start listening for a command, or stop the current one. */
+    /** Bubble tap: start listening for a command, or stop the current one. Works whether enabled or not. */
     fun toggle() {
         if (job?.isActive == true) { stop(); return }
-        if (!Prefs.enabled(this)) { sayDisabled(); return }
+        voice.cancelListening()   // pause background listening while we take this command
         job = scope.launch { runSession(null) }
     }
 
     /** Run a typed command (handy for testing from the app screen). */
     fun runTyped(command: String) {
         stop()
-        if (!Prefs.enabled(this)) { sayDisabled(); return }
         job = scope.launch { runSession(command) }
     }
 
-    private fun sayDisabled() {
-        android.widget.Toast.makeText(this, "Voice Agent is OFF. Double-tap the button to turn it on.", android.widget.Toast.LENGTH_SHORT).show()
-        scope.launch { voice.speak("Voice Agent is off. Double tap the button to turn it on.") }
+    /** Called when Enable/Disable changes anywhere (app, tile, bubble, notification, voice). */
+    fun onEnabledChanged(on: Boolean) {
+        updateHandsFree()
+        setState(State.IDLE)
     }
 
-    /** Called when the on/off switch changes anywhere (app, tile, bubble, voice). */
-    fun onEnabledChanged(on: Boolean) {
-        if (!on) stop()
+    // ---------------------------------------------------------------- always listening
+
+    private var passive: Job? = null
+
+    private fun micAllowed() = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /** Start or stop background listening to match the Enable/Disable setting. */
+    fun updateHandsFree() {
+        val want = Prefs.enabled(this) && micAllowed()
+        if (want) {
+            ListeningService.start(this)
+            if (passive?.isActive != true) passive = scope.launch { passiveLoop() }
+        } else {
+            passive?.cancel()
+            passive = null
+            if (::voice.isInitialized && job?.isActive != true) voice.cancelListening()
+            ListeningService.stop(this)
+        }
         setState(State.IDLE)
+    }
+
+    /** Is now a bad time to listen (screen off, on a call, another app recording)? */
+    private fun shouldPause(): Boolean {
+        val pm = getSystemService(android.os.PowerManager::class.java)
+        if (!pm.isInteractive && !Prefs.listenScreenOff(this)) return true
+        val am = getSystemService(android.media.AudioManager::class.java)
+        if (am.mode == android.media.AudioManager.MODE_IN_CALL ||
+            am.mode == android.media.AudioManager.MODE_IN_COMMUNICATION ||
+            am.mode == android.media.AudioManager.MODE_RINGTONE) return true
+        return false
+    }
+
+    /** Listen quietly, over and over; act only on sentences that start with the wake word. */
+    private suspend fun passiveLoop() {
+        var failures = 0
+        while (true) {
+            if (job?.isActive == true || shouldPause()) { delay(1000); continue }
+            val heard = voice.listen(passive = true)
+            if (job?.isActive == true) continue
+            if (heard.isNullOrBlank()) {
+                when (voice.lastError) {
+                    android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
+                        Prefs.setEnabled(this, false); return
+                    }
+                    android.speech.SpeechRecognizer.ERROR_NO_MATCH,
+                    android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT, 0 -> { failures = 0; delay(150) }
+                    else -> { failures++; delay(minOf(1000L * failures, 10_000L)) }   // mic busy etc.: back off
+                }
+                continue
+            }
+            failures = 0
+            val rest = WakeWord.extract(heard, Prefs.wakeWord(this)) ?: continue
+            job = scope.launch { runSession(rest.ifBlank { null }, greet = rest.isBlank()) }
+            job?.join()
+        }
     }
 
     fun stop() {
@@ -128,8 +183,9 @@ class AgentAccessibilityService : AccessibilityService() {
         setState(State.IDLE)
     }
 
-    private suspend fun runSession(typed: String?) {
+    private suspend fun runSession(typed: String?, greet: Boolean = false) {
         try {
+            if (greet) voice.speak(tr("Yes?", "बोला?"))
             val command = typed ?: run {
                 setState(State.LISTENING)
                 voice.listen()
@@ -141,11 +197,17 @@ class AgentAccessibilityService : AccessibilityService() {
                 else voice.speak(tr("Sorry, I didn't catch that.", "माफ करा, मला समजलं नाही."))
                 return
             }
-            if (Regex("(?i)\\b(disable|turn off|switch off|deactivate|go to sleep)\\b.*\\b(yourself|agent|assistant|voice agent)\\b|^\\s*(disable|turn off)\\s*$|(स्वतःला|एजंट) बंद")
+            if (Regex("(?i)\\b(disable|turn off|switch off|deactivate|go to sleep)\\b.*\\b(yourself|agent|assistant|voice agent|listening)\\b|^\\s*(disable|turn off|stop listening|go to sleep|sleep)\\s*$|\\bstop listening\\b|(स्वतःला|एजंट) बंद|ऐकणं बंद|ऐकणे बंद|^\\s*बंद हो\\s*$|^\\s*झोप\\s*$")
                     .containsMatchIn(command)) {
-                voice.speak(tr("Okay, I'm off. Double tap the button when you want me back.",
-                    "ठीक आहे, मी बंद होतोय. परत हवं असेल तेव्हा बटणावर दोनदा टॅप करा."))
                 Prefs.setEnabled(this, false)
+                voice.speak(tr("Okay, I've stopped listening. Tap me when you need me, or double tap to enable me again.",
+                    "ठीक आहे, मी ऐकणं बंद केलं. गरज असेल तेव्हा मला टॅप करा, किंवा परत सुरू करायला दोनदा टॅप करा."))
+                return
+            }
+            if (Regex("(?i)^\\s*(enable|turn on|switch on|activate)\\s*(yourself|agent|voice agent|listening)?\\s*$|\\b(start|keep|always) listening\\b|hands[- ]?free|सतत ऐक|ऐकणं (सुरू|चालू)|ऐकणे (सुरू|चालू)|(स्वतःला|एजंट) (सुरू|चालू)")
+                    .containsMatchIn(command)) {
+                Prefs.setEnabled(this, true)
+                voice.speak(enabledMessage())
                 return
             }
             setState(State.WORKING)
@@ -157,6 +219,11 @@ class AgentAccessibilityService : AccessibilityService() {
         } finally {
             setState(State.IDLE)
         }
+    }
+
+    fun enabledMessage(): String {
+        val w = Prefs.wakeWord(this)
+        return tr("I'm listening. Just say $w, then what you need.", "मी ऐकतोय. फक्त $w म्हणा आणि काय हवं ते सांगा.")
     }
 
     /** Ask a question out loud and listen for the answer. */
@@ -222,14 +289,21 @@ class AgentAccessibilityService : AccessibilityService() {
                         startActivity(Intent(this, MainActivity::class.java)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     } else if (pendingTap != null) {
-                        // Double-tap: switch the agent on/off.
+                        // Double-tap: Enable / Disable always-listening.
                         handler.removeCallbacks(pendingTap!!)
                         pendingTap = null
                         val on = !Prefs.enabled(this)
-                        Prefs.setEnabled(this, on)
-                        android.widget.Toast.makeText(this,
-                            if (on) "Voice Agent ON" else "Voice Agent OFF", android.widget.Toast.LENGTH_SHORT).show()
-                        scope.launch { voice.speak(if (on) "Voice Agent is on." else "Voice Agent is off.") }
+                        if (on && !micAllowed()) {
+                            android.widget.Toast.makeText(this, "Allow the microphone in the Voice Agent app first.", android.widget.Toast.LENGTH_LONG).show()
+                        } else {
+                            Prefs.setEnabled(this, on)
+                            android.widget.Toast.makeText(this,
+                                if (on) "Voice Agent ENABLED: always listening" else "Voice Agent DISABLED", android.widget.Toast.LENGTH_SHORT).show()
+                            scope.launch {
+                                voice.cancelListening()
+                                voice.speak(if (on) enabledMessage() else tr("Disabled. Tap me when you need me.", "बंद केलं. गरज असेल तेव्हा मला टॅप करा."))
+                            }
+                        }
                     } else {
                         // Single tap (waits briefly to rule out a double-tap).
                         val r = Runnable { pendingTap = null; toggle() }
@@ -253,7 +327,8 @@ class AgentAccessibilityService : AccessibilityService() {
         scope.launch(Dispatchers.Main) {
             val b = bubble ?: return@launch
             val (label, color) = when (state) {
-                State.IDLE -> if (Prefs.enabled(this@AgentAccessibilityService)) "🎤" to "#3F51B5" else "💤" to "#9E9E9E"
+                // Green = enabled, always listening for the wake word. Grey = disabled (tap to talk).
+                State.IDLE -> if (Prefs.enabled(this@AgentAccessibilityService)) "🎤" to "#2E7D32" else "🎤" to "#757575"
                 State.LISTENING -> "👂" to "#E53935"
                 State.WORKING -> "⏹" to "#FB8C00"   // tap to stop
             }

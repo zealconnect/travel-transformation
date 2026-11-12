@@ -27,6 +27,7 @@ class MainActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var tvModel: TextView
+    private lateinit var swEnabled: Switch
     private var copying = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,7 +37,8 @@ class MainActivity : Activity() {
         tvModel = findViewById(R.id.tvModel)
 
         findViewById<Button>(R.id.btnPerms).setOnClickListener {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE), 1)
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.READ_CONTACTS,
+                Manifest.permission.CALL_PHONE, Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         findViewById<Button>(R.id.btnFiles).setOnClickListener {
             open(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
@@ -46,9 +48,28 @@ class MainActivity : Activity() {
         }
         findViewById<Button>(R.id.btnA11y).setOnClickListener { open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
 
-        val swEnabled = findViewById<Switch>(R.id.swEnabled)
-        swEnabled.isChecked = Prefs.enabled(this)
-        swEnabled.setOnCheckedChangeListener { _, on -> Prefs.setEnabled(this, on); refresh() }
+        swEnabled = findViewById(R.id.swEnabled)
+        swEnabled.setOnCheckedChangeListener { sw, on ->
+            if (on && !granted(Manifest.permission.RECORD_AUDIO)) {
+                sw.isChecked = false
+                toast("First allow the microphone (setup step 1).")
+                return@setOnCheckedChangeListener
+            }
+            if (on != Prefs.enabled(this)) Prefs.setEnabled(this, on)
+            refresh()
+        }
+
+        val etWake = findViewById<EditText>(R.id.etWake)
+        etWake.setText(Prefs.wakeWord(this))
+        etWake.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) { Prefs.setWakeWord(this@MainActivity, s.toString()); refresh() }
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        })
+
+        val swScreenOff = findViewById<Switch>(R.id.swScreenOff)
+        swScreenOff.isChecked = Prefs.listenScreenOff(this)
+        swScreenOff.setOnCheckedChangeListener { _, on -> Prefs.setListenScreenOff(this, on) }
 
         val lang = findViewById<RadioGroup>(R.id.lang)
         lang.check(if (Prefs.marathi(this)) R.id.langMr else R.id.langEn)
@@ -106,6 +127,13 @@ class MainActivity : Activity() {
     private fun refresh() {
         fun mark(ok: Boolean) = if (ok) "✅" else "❌"
         val service = AgentAccessibilityService.instance != null
+        swEnabled.isChecked = Prefs.enabled(this)
+        val wake = Prefs.wakeWord(this)
+        findViewById<TextView>(R.id.tvEnabledHint).text = when {
+            !service -> "Finish setup below first (step 4)."
+            Prefs.enabled(this) -> "ON: just say “$wake, call Mom” any time. The 🎤 button is green. Turn this off, double-tap 🎤, or say “$wake, stop listening” to disable."
+            else -> "OFF: not listening. Tap 🎤 to give one command, or turn this on (or double-tap 🎤) to enable."
+        }
         status.text = buildString {
             appendLine("${mark(service)} Accessibility service ${if (service) "running" else "off (step 4)"}")
             appendLine("${mark(granted(Manifest.permission.RECORD_AUDIO))} Microphone")
@@ -157,11 +185,14 @@ class MainActivity : Activity() {
     }
 
     private val HELP = """
-Tap the floating 🎤 button and speak. Tap it again to stop.
-• Double-tap 🎤: turn the agent on/off
-• Long-press 🎤: open this screen
-• Drag 🎤: move it anywhere
-• Quick Settings tile “Voice Agent”: on/off
+ENABLE / DISABLE
+• Enabled (green 🎤): always listening. Say “Agent, call Mom” any time, no tap needed. Or say “Agent”, wait for “Yes?”, then speak.
+• Disabled (grey 🎤): not listening. Tap 🎤 for one command.
+• To switch: the big switch at the top, double-tap 🎤, the “Voice Agent” Quick Settings tile, the Disable button in the notification, or by voice: “Agent, stop listening” / tap 🎤 and say “start listening”.
+
+OTHER CONTROLS
+• Tap 🎤: speak one command now. Tap again (⏹) to stop a task.
+• Long-press 🎤: open this screen. Drag 🎤: move it.
 
 English examples
 • Call Mom / Call 98765 43210

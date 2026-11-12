@@ -128,6 +128,9 @@ object Text {
         return 0.55 * sim(sx, sy) + 0.45 * sim(x, y)
     }
 
+    /** 0..1: how alike two whole phrases sound (no partial-word credit). */
+    fun phraseScore(a: String, b: String): Double = pairScore(fold(a), fold(b))
+
     /** 0..1: how well a spoken name matches a saved name (whole name, or one/two of its words). */
     fun nameScore(spoken: String, saved: String): Double {
         val q = fold(spoken); val c = fold(saved)
@@ -148,5 +151,35 @@ object Text {
     fun stripMarathiSuffix(w: String): String {
         for (s in MR_SUFFIXES) if (w.endsWith(s) && w.length > s.length + 1) return w.dropLast(s.length)
         return w
+    }
+}
+
+/** Spotting the wake word ("Agent, call Mom") at the start of what was heard. */
+object WakeWord {
+
+    private val LEAD_INS = setOf("hey", "hi", "ok", "okay", "hello", "o", "e", "are", "arey", "aho", "hai", "a")
+    private val AGENT_MARATHI = listOf("एजंट", "एजन्ट", "एजेंट", "एजंट्स")
+
+    private fun matches(heard: String, wake: String): Boolean {
+        val variants = mutableListOf(wake)
+        if (Text.fold(wake) == "agent") variants += AGENT_MARATHI
+        val h = Text.fold(heard)
+        return variants.any { v -> h == Text.fold(v) || Text.phraseScore(heard, v) >= 0.84 }
+    }
+
+    /**
+     * If [heard] starts with the wake word, returns what comes after it ("" if nothing),
+     * otherwise null (the sentence wasn't meant for the agent).
+     */
+    fun extract(heard: String, wake: String): String? {
+        val words = heard.trim().split(Regex("\\s+")).map { it.trim(',', '.', '!', '?', '।') }.filter { it.isNotEmpty() }
+        var i = 0
+        while (i < words.size - 1 && Text.fold(words[i]) in LEAD_INS) i++
+        val wakeLen = wake.trim().split(Regex("\\s+")).size
+        for (n in maxOf(1, wakeLen - 1)..(wakeLen + 1)) {   // shortest first, so the command isn't swallowed
+            if (i + n > words.size) continue
+            if (matches(words.subList(i, i + n).joinToString(" "), wake)) return words.drop(i + n).joinToString(" ")
+        }
+        return null
     }
 }

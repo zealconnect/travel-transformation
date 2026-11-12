@@ -7,12 +7,24 @@ import java.io.File
 object Prefs {
     private fun sp(c: Context) = c.getSharedPreferences("voice_agent", Context.MODE_PRIVATE)
 
-    fun enabled(c: Context) = sp(c).getBoolean("enabled", true)
+    /**
+     * Enabled = always listening: say the wake word ("Agent, call Mom") any time, no tap needed.
+     * Disabled = not listening in the background; tapping 🎤 still works for a single command.
+     */
+    fun enabled(c: Context) = sp(c).getBoolean("hands_free", false)
     fun setEnabled(c: Context, on: Boolean) {
-        sp(c).edit().putBoolean("enabled", on).apply()
+        sp(c).edit().putBoolean("hands_free", on).apply()
         AgentAccessibilityService.instance?.onEnabledChanged(on)
         AgentTileService.refresh(c)
     }
+
+    /** The name you call it by when it's always listening. */
+    fun wakeWord(c: Context): String = sp(c).getString("wake", "Agent")?.trim()?.ifEmpty { "Agent" } ?: "Agent"
+    fun setWakeWord(c: Context, w: String) = sp(c).edit().putString("wake", w.trim()).apply()
+
+    /** Keep listening while the screen is off (uses more battery). */
+    fun listenScreenOff(c: Context) = sp(c).getBoolean("screen_off", false)
+    fun setListenScreenOff(c: Context, on: Boolean) = sp(c).edit().putBoolean("screen_off", on).apply()
 
     /** "en-IN" or "mr-IN": the language it listens and replies in. */
     fun lang(c: Context): String = sp(c).getString("lang", "en-IN") ?: "en-IN"

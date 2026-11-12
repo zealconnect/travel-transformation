@@ -32,10 +32,16 @@
             android:lineSpacingExtra="4dp"
             android:textSize="15sp" />
 
+        <Switch android:id="@+id/swEnabled"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:padding="12dp"
+            android:text="Enable: always listening" android:textSize="20sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tvEnabledHint" style="@style/Hint" />
+
         <TextView style="@style/Section" android:text="Setup (one time)" />
 
         <Button android:id="@+id/btnPerms" style="@style/Btn"
-            android:text="1. Allow microphone, contacts and calls" />
+            android:text="1. Allow microphone, contacts, calls and notifications" />
         <Button android:id="@+id/btnFiles" style="@style/Btn"
             android:text="2. Allow access to files (for sending files)" />
         <Button android:id="@+id/btnRestricted" style="@style/Btn"
@@ -49,9 +55,20 @@
 
         <TextView style="@style/Section" android:text="Settings" />
 
-        <Switch android:id="@+id/swEnabled"
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Wake word (what you call it)" />
+            <EditText android:id="@+id/etWake" android:layout_width="140dp" android:layout_height="wrap_content"
+                android:inputType="textCapWords" android:maxLength="20" />
+        </LinearLayout>
+        <TextView style="@style/Hint"
+            android:text="Pick a name that's easy to say and rarely used in normal talk. “Agent” also works when you speak Marathi (एजंट)." />
+
+        <Switch android:id="@+id/swScreenOff"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" android:text="Agent is on" android:textSize="16sp" />
+            android:layout_marginTop="12dp" android:textSize="16sp"
+            android:text="Keep listening when the screen is off (uses more battery)" />
 
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_marginTop="12dp" android:text="Language I listen and reply in" />
