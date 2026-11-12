@@ -9,28 +9,46 @@ It is **free**. No API key, no account and no paid service. It uses only what's 
 | Listening | Android speech recognition (`SpeechRecognizer`) | Free |
 | Talking back | Android text-to-speech | Free |
 | Understanding commands | Built-in English + Marathi command patterns | Free, offline |
-| Operating the phone | An Accessibility Service (taps, typing, reading the screen) | Free |
+| Doing things | Android intents: calls, WhatsApp chats/calls, sharing files, apps, alarms… | Free |
 | Unusual requests (optional) | Gemma AI model running **on the phone** (Google MediaPipe) | Free, offline |
 
 Built and tested for a **Pixel 7** (Android 11 or newer works).
 
 ---
 
+## Two versions
+
+| | **VoiceAgent.apk** (use this) | VoiceAgent-full.apk |
+|---|---|---|
+| Install from the phone | ✅ Play Protect doesn't block it | ❌ Blocked ("App blocked to protect your device") |
+| Install from a computer (`adb install`) | ✅ | ✅ |
+| Calls, WhatsApp calls, apps, alarms, torch, volume, maps, music, time… | ✅ Fully hands-free | ✅ |
+| WhatsApp/SMS messages and files | Opens the chat with everything ready; **you tap Send** | Presses Send for you |
+| "Send this to Mom" (Share button of the open app), read the screen, go back, screenshot, lock | ❌ | ✅ |
+| Wi-Fi / Bluetooth | Opens the switch; you tap it | Flips it for you |
+| AI working inside other apps | ❌ | ✅ |
+
+Why: Play Protect blocks apps installed from a browser if they use **Accessibility**, the only way an app can press buttons inside other apps. The main version doesn't use it, so it installs normally. Both can be installed side by side.
+
 ## Install it on your phone
 
-1. On the phone, download **`release/VoiceAgent.apk`** from this repo and open it.
-   Allow "Install unknown apps" for your browser or Files app when asked.
-   If Play Protect warns that the app isn't from the Play Store, choose **Install anyway**. The warning appears because the app uses Accessibility.
-2. Open **Voice Agent** and go through the 4 setup buttons:
+1. On the phone, download **`release/VoiceAgent.apk`** and open it. Allow "Install unknown apps" for your browser or Files app when asked.
+   If Play Protect shows a softer warning with **Install anyway**, tap that.
+2. Open **Voice Agent** and do the setup steps:
    1. **Allow microphone, contacts, calls and notifications**
-   2. **Allow access to files**: turn on *Allow access to manage all files* (needed to find and send files).
-   3. **Allow restricted settings**: on the App info page tap **⋮** (top right) → **Allow restricted settings**.
-      Android hides this ⋮ option until you've tried step 4 once, so if it isn't there, do step 4, then come back.
-   4. **Turn on Voice Agent in Accessibility** → *Use Voice Agent* → Allow.
-3. A blue **🎤** button appears on your screen. **Tap it and speak.**
+   2. **Allow access to files**: turn on *Allow access to manage all files* (to find and send files).
+   3. **Allow "Display over other apps"** (for the floating 🎤 button).
+   4. **Start Voice Agent**: the 🎤 button appears, plus a small "Voice Agent" notification.
+3. Turn on **Enable: always listening** at the top if you want hands-free, or just tap 🎤 and speak.
+
+After restarting the phone, open the app once and it starts again.
 
 For Marathi replies, make sure Marathi voice data is installed:
 Settings → System → Languages → Text-to-speech output → Speech Services by Google ⚙ → Install voice data → मराठी.
+
+### Full version (optional, from a computer)
+
+Connect the phone with USB debugging on and run `adb install release/VoiceAgent-full.apk`. Then in that app: **Allow restricted settings** (App info → ⋮) and **turn on screen control in Accessibility**.
 
 ## Using it
 
@@ -45,7 +63,7 @@ Ways to switch:
 - The big **Enable: always listening** switch at the top of the app
 - **Double-tap 🎤**
 - The **Voice Agent** Quick Settings tile (swipe down twice from the top; add it via ✏️ the first time)
-- The **Disable** button in the "Voice Agent is listening" notification
+- The **Disable / Enable** button in the "Voice Agent" notification (**Quit** there stops the agent completely)
 - By voice: "**Agent, stop listening**" / "**एजंट, ऐकणं बंद कर**" to disable; tap 🎤 and say "**start listening**" / "**ऐकणं सुरू कर**" to enable
 
 It only acts on sentences that **start with the wake word**, so TV and conversations around you are ignored. You can change the wake word in the app (pick something easy to say that you don't use often). While enabled it pauses during phone calls and, by default, while the screen is off. Turn on "Keep listening when the screen is off" if you want that, though it uses more battery.
@@ -95,32 +113,37 @@ Anything the built-in commands don't recognise then goes to this model. It eithe
 
 ## What it can't do (Android limits)
 
+- **Main version:** it can't press buttons inside other apps, so you tap *Send* yourself (see the table above).
 - **Always listening costs some battery**, as the phone keeps recognising speech. Disable it when you don't need it.
-- **WhatsApp has no official way to send silently.** The agent opens the chat with the message or file ready and taps *Send* for you. A WhatsApp update that renames buttons can break this until the app is updated.
-- **Password fields:** it refuses to type into them.
-- **Banking/UPI apps** often block Accessibility on their screens.
-- **Not on the Play Store:** Google restricts apps that use Accessibility like this. It's meant for your own phone.
+- **Full version:** WhatsApp has no official way to send silently. The agent taps *Send* on screen, and a WhatsApp update that renames buttons can break this until the app is updated.
+- **Password fields:** it never types into them. **Banking/UPI apps** often block screen control.
+- **Not on the Play Store.** It's meant for your own phone.
 
 ## Build it yourself
 
 Open this folder in Android Studio and press ▶, or:
 
 ```bash
-./gradlew assembleDebug        # → app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest    # English + Marathi command tests
+./gradlew assembleLiteDebug     # main version → app/build/outputs/apk/lite/debug/
+./gradlew assembleFullDebug     # full version (screen control) → app/build/outputs/apk/full/debug/
+./gradlew testLiteDebugUnitTest # English + Marathi command and wake-word tests
 ```
 
 The app is signed with `app/voiceagent.keystore` (kept in the repo on purpose), so new builds install over old ones without losing settings.
 
-## Code map (`app/src/main/java/com/example/voiceagent/`)
+## Code map
+
+`app/src/main/java/com/example/voiceagent/` (both versions):
 
 | File | Job |
 |---|---|
-| `AgentAccessibilityService.kt` | Floating 🎤 button, reads the screen, taps, types, scrolls, opens apps |
+| `AgentService.kt` | The agent: floating 🎤 button, notification, always-listening, running commands, opening apps |
 | `Voice.kt` | Listening and speaking (Android built-ins) |
-| `ListeningService.kt` | "Voice Agent is listening" notification with a Disable button (keeps the mic allowed in the background) |
 | `CommandParser.kt` | English + Marathi sentences → commands |
 | `Actions.kt` | Does each command (calls, WhatsApp, files, settings, media…) |
-| `Contacts.kt`, `FileFinder.kt`, `Text.kt` | Finding people and files; Marathi→Latin spelling and "sounds-alike" matching |
+| `Contacts.kt`, `FileFinder.kt`, `Text.kt` | Finding people and files; Marathi→Latin spelling, "sounds-alike" matching, wake word |
 | `Agent.kt`, `LocalBrain.kt` | Fallback to the optional on-phone AI, and its step-by-step screen control |
+| `Screen.kt` | The screen-control interface (empty in the main version) |
 | `MainActivity.kt`, `AgentTileService.kt`, `Prefs.kt` | Setup screen, Quick Settings tile, saved settings |
+
+`app/src/full/`: `AgentAccessibilityService.kt` (screen control), included only in the full version.

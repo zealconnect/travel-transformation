@@ -7,7 +7,7 @@ import org.json.JSONObject
  * The brain: try the fixed English/Marathi commands first (instant, free, offline),
  * then fall back to the optional on-phone AI model.
  */
-class Agent(private val svc: AgentAccessibilityService, private val voice: Voice) {
+class Agent(private val svc: AgentService, private val voice: Voice) {
 
     private fun tr(en: String, mr: String) = svc.tr(en, mr)
 
@@ -107,7 +107,7 @@ JSON:""".trim()
 }
 
 /** Lets the on-phone AI operate apps step by step (read screen → tap/type → repeat). */
-class ScreenLoop(private val svc: AgentAccessibilityService, private val voice: Voice) {
+class ScreenLoop(private val svc: AgentService, private val voice: Voice) {
 
     private fun tr(en: String, mr: String) = svc.tr(en, mr)
 
@@ -121,6 +121,10 @@ class ScreenLoop(private val svc: AgentAccessibilityService, private val voice: 
     }
 
     suspend fun run(goal: String) {
+        val sc = Screen.current ?: return voice.speak(tr(
+            "Sorry, working inside other apps needs screen control, which this version doesn't have.",
+            "माफ करा, इतर ॲप्समध्ये काम करायला स्क्रीन कंट्रोल लागतो, जो या व्हर्जनमध्ये नाही."
+        ))
         val brain = LocalBrain.get(svc) ?: return voice.speak(tr(
             "For that I need the free offline AI model. Add it in the Voice Agent app.",
             "त्यासाठी मोफत ऑफलाइन AI मॉडेल हवं. Voice Agent ॲपमध्ये ते जोडा."
@@ -130,7 +134,7 @@ class ScreenLoop(private val svc: AgentAccessibilityService, private val voice: 
         var repeats = 0
         for (step in 1..12) {
             delay(800)
-            val screen = svc.dumpScreen(brain.screenChars)
+            val screen = sc.dumpScreen(brain.screenChars)
             val reply = try { brain.complete(Prompts.screenStep(goal, history.takeLast(6), screen)) } catch (e: Exception) { "" }
             val o = LocalBrain.firstJson(reply)
             if (o == null) { history += "$step. (no valid reply)"; continue }
@@ -141,16 +145,16 @@ class ScreenLoop(private val svc: AgentAccessibilityService, private val voice: 
             val id = o.optInt("id", -1)
             val result = when (o.optString("do")) {
                 "tap" -> {
-                    val what = svc.labelOf(id)
+                    val what = sc.labelOf(id)
                     if (risky.containsMatchIn(what) && !confirm(what.substringBefore(" | ")))
                         return voice.speak(tr("Okay, I stopped.", "ठीक आहे, थांबलो."))
-                    svc.tap(id)
+                    sc.tap(id)
                 }
-                "type" -> svc.typeText(id, o.optString("text"))
-                "enter" -> svc.pressEnter(id)
-                "scroll" -> svc.scroll(o.optString("dir", "down"), null)
-                "back" -> svc.press("back")
-                "home" -> svc.press("home")
+                "type" -> sc.typeText(id, o.optString("text"))
+                "enter" -> sc.pressEnter(id)
+                "scroll" -> sc.scroll(o.optString("dir", "down"), null)
+                "back" -> sc.press("back")
+                "home" -> sc.press("home")
                 "open_app" -> svc.openApp(o.optString("app")).second
                 "done" -> return voice.speak(o.optString("say").ifBlank { tr("Done.", "झालं.") })
                 else -> "Unknown step."

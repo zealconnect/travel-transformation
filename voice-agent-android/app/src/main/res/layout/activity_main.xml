@@ -44,14 +44,24 @@
             android:text="1. Allow microphone, contacts, calls and notifications" />
         <Button android:id="@+id/btnFiles" style="@style/Btn"
             android:text="2. Allow access to files (for sending files)" />
-        <Button android:id="@+id/btnRestricted" style="@style/Btn"
-            android:text="3. Allow restricted settings" />
+        <Button android:id="@+id/btnOverlay" style="@style/Btn"
+            android:text="3. Allow “Display over other apps” (for the 🎤 button)" />
+        <Button android:id="@+id/btnStart" style="@style/Btn"
+            android:text="4. Start Voice Agent" />
         <TextView style="@style/Hint"
-            android:text="Android blocks Accessibility for apps installed outside the Play Store until you allow it once: on the App info page tap ⋮ (top right) → Allow restricted settings. If you don't see ⋮ yet, try step 4 first, then come back." />
-        <Button android:id="@+id/btnA11y" style="@style/Btn"
-            android:text="4. Turn on Voice Agent in Accessibility" />
-        <TextView style="@style/Hint"
-            android:text="Tap Voice Agent → Use Voice Agent → Allow. A blue 🎤 button appears on your screen." />
+            android:text="A 🎤 button appears on your screen and a small “Voice Agent” notification stays while it runs. After restarting your phone, open this app once to start it again." />
+
+        <LinearLayout android:id="@+id/fullSetup" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+            <Button android:id="@+id/btnRestricted" style="@style/Btn"
+                android:text="5. Allow restricted settings (full version)" />
+            <TextView style="@style/Hint"
+                android:text="On the App info page tap ⋮ (top right) → Allow restricted settings. If you don't see ⋮ yet, try step 6 first, then come back." />
+            <Button android:id="@+id/btnA11y" style="@style/Btn"
+                android:text="6. Turn on screen control in Accessibility (full version)" />
+            <TextView style="@style/Hint"
+                android:text="Lets the agent press Send, flip switches and use Share buttons for you." />
+        </LinearLayout>
 
         <TextView style="@style/Section" android:text="Settings" />
 

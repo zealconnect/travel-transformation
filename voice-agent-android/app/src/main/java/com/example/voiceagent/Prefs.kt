@@ -14,7 +14,7 @@ object Prefs {
     fun enabled(c: Context) = sp(c).getBoolean("hands_free", false)
     fun setEnabled(c: Context, on: Boolean) {
         sp(c).edit().putBoolean("hands_free", on).apply()
-        AgentAccessibilityService.instance?.onEnabledChanged(on)
+        AgentService.instance?.onEnabledChanged(on)
         AgentTileService.refresh(c)
     }
 

@@ -29,6 +29,25 @@ android {
         }
     }
 
+    buildFeatures { buildConfig = true }
+
+    // "lite" (default): installs normally; Play Protect doesn't block it.
+    // "full": adds screen control via Accessibility; install it from a computer (adb).
+    flavorDimensions += "edition"
+    productFlavors {
+        create("lite") {
+            dimension = "edition"
+            isDefault = true
+            buildConfigField("boolean", "FULL", "false")
+        }
+        create("full") {
+            dimension = "edition"
+            applicationIdSuffix = ".full"
+            versionNameSuffix = "-full"
+            buildConfigField("boolean", "FULL", "true")
+        }
+    }
+
     buildTypes {
         debug { signingConfig = signingConfigs.getByName("personal") }
         release {

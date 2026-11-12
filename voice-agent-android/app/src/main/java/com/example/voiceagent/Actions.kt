@@ -11,6 +11,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.provider.AlarmClock
+import android.provider.ContactsContract
 import android.provider.MediaStore
 import android.provider.Settings
 import android.view.accessibility.AccessibilityNodeInfo
@@ -23,7 +24,10 @@ import java.util.Date
 import java.util.Locale
 
 /** Carries out a [Command] on the phone. */
-class Actions(private val svc: AgentAccessibilityService, private val voice: Voice) {
+class Actions(private val svc: AgentService, private val voice: Voice) {
+
+    /** Screen control, only in the full build. Null means: let the user do the final tap. */
+    private val screen: Screen? get() = Screen.current
 
     private data class Target(val name: String, val number: String)
 
@@ -80,7 +84,8 @@ class Actions(private val svc: AgentAccessibilityService, private val voice: Voi
                 say("Battery is at $pct percent.", "बॅटरी $pct टक्के आहे.")
             }
             Command.ReadScreen -> {
-                val text = svc.visibleText(700)
+                val sc = screen ?: return needsFull()
+                val text = sc.visibleText(700)
                 if (text.isBlank()) say("I can't read anything on this screen.", "या स्क्रीनवर वाचण्यासारखं काही नाही.") else voice.speak(text)
             }
             Command.Help -> say(
@@ -197,13 +202,37 @@ class Actions(private val svc: AgentAccessibilityService, private val voice: Voi
         val text = message ?: svc.ask(tr("What should I say to ${t.name}?", "${t.name} यांना काय पाठवू?"))
         if (text.isNullOrBlank()) return say("Okay, cancelled.", "ठीक आहे, रद्द केलं.")
         openWaChat(pkg, t.number, text)
-        if (!Prefs.autoSend(svc)) return say("Your message to ${t.name} is ready. Tap send.", "${t.name} यांचा मेसेज तयार आहे. सेंड दाबा.")
-        val n = svc.waitForNode(9000) { isWaSend(it, pkg) || isNotOnWhatsApp(it, pkg) }
+        val sc = screen
+        if (sc == null || !Prefs.autoSend(svc)) return say("Your message to ${t.name} is ready. Just tap Send.", "${t.name} यांचा मेसेज तयार आहे. फक्त सेंड दाबा.")
+        val n = sc.waitForNode(9000) { isWaSend(it, pkg) || isNotOnWhatsApp(it, pkg) }
             ?: return say("I opened the chat but couldn't find the send button.", "चॅट उघडला पण सेंड बटण सापडलं नाही.")
         if (isNotOnWhatsApp(n, pkg)) return say("${t.name} doesn't seem to be on WhatsApp.", "${t.name} WhatsApp वर दिसत नाहीत.")
-        svc.clickNode(n)
+        sc.clickNode(n)
         delay(500)
         say("Sent to ${t.name}.", "${t.name} यांना पाठवलं.")
+    }
+
+    /** WhatsApp adds "Voice call / Video call" entries to your contacts; opening one starts the call directly. */
+    private fun waCallIntent(pkg: String, number: String, video: Boolean): Intent? {
+        val app = if (pkg == "com.whatsapp.w4b") "com.whatsapp.w4b" else "com.whatsapp"
+        val mime = "vnd.android.cursor.item/vnd.$app." + if (video) "video.call" else "voip.call"
+        val want = waNumber(number)
+        return try {
+            svc.contentResolver.query(
+                ContactsContract.Data.CONTENT_URI,
+                arrayOf(ContactsContract.Data._ID, ContactsContract.Data.DATA1, ContactsContract.Data.DATA3),
+                "${ContactsContract.Data.MIMETYPE} = ?", arrayOf(mime), null
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val text = (c.getString(1) ?: "") + " " + (c.getString(2) ?: "")
+                    if (text.filter { it.isDigit() }.contains(want)) {
+                        val uri = Uri.withAppendedPath(ContactsContract.Data.CONTENT_URI, c.getLong(0).toString())
+                        return@use Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime).setPackage(pkg)
+                    }
+                }
+                null
+            }
+        } catch (_: Exception) { null }
     }
 
     private suspend fun waCall(who: String, video: Boolean) {
@@ -211,28 +240,31 @@ class Actions(private val svc: AgentAccessibilityService, private val voice: Voi
         val t = resolve(who) ?: return
         if (video) say("Video calling ${t.name} on WhatsApp.", "${t.name} यांना WhatsApp व्हिडिओ कॉल करत आहे.")
         else say("Calling ${t.name} on WhatsApp.", "${t.name} यांना WhatsApp कॉल करत आहे.")
+        waCallIntent(pkg, t.number, video)?.let { if (start(it)) return }
+        // Fallback: open the chat and press the call button (full build), or let the user press it.
         openWaChat(pkg, t.number, null)
+        val sc = screen ?: return say("I opened the chat. Tap the call button at the top.", "चॅट उघडला. वरचं कॉल बटण दाबा.")
         val want = if (video) Regex("^(video call|व्हिडिओ कॉल)$") else Regex("^(voice call|audio call|call|व्हॉइस कॉल|ऑडिओ कॉल)$")
-        val btn = svc.waitForNode(9000) { it.packageName == pkg && want.matches(label(it)) || isNotOnWhatsApp(it, pkg) }
+        val btn = sc.waitForNode(9000) { it.packageName == pkg && want.matches(label(it)) || isNotOnWhatsApp(it, pkg) }
             ?: return say("I couldn't find the call button.", "कॉलचं बटण सापडलं नाही.")
         if (isNotOnWhatsApp(btn, pkg)) return say("${t.name} doesn't seem to be on WhatsApp.", "${t.name} WhatsApp वर दिसत नाहीत.")
-        svc.clickNode(btn)
-        // Some versions ask "Start call?" first.
-        svc.waitForNode(2500) { it.packageName == pkg && Regex("^(call|start call|voice call|video call|कॉल करा)$").matches(label(it)) && it.isClickable }
-            ?.let { svc.clickNode(it) }
+        sc.clickNode(btn)
+        sc.waitForNode(2500) { it.packageName == pkg && Regex("^(call|start call|voice call|video call|कॉल करा)$").matches(label(it)) && it.isClickable }
+            ?.let { sc.clickNode(it) }
     }
 
     /** After WhatsApp opens from a share: pick the person if asked, then press Send. */
     private suspend fun finishWaShare(pkg: String, name: String) {
-        val first = svc.waitForNode(9000) { isWaSend(it, pkg) || isWaPicker(it, pkg) }
+        val sc = screen
+        if (sc == null || !Prefs.autoSend(svc)) return say("It's ready. Just tap Send.", "तयार आहे. फक्त सेंड दाबा.")
+        val first = sc.waitForNode(9000) { isWaSend(it, pkg) || isWaPicker(it, pkg) }
             ?: return say("WhatsApp opened but I couldn't finish. Please check the screen.", "WhatsApp उघडलं पण पूर्ण करता आलं नाही. स्क्रीन बघा.")
-        if (isWaPicker(first, pkg) && !waPickContact(pkg, name))
+        if (isWaPicker(first, pkg) && !waPickContact(sc, pkg, name))
             return say("I couldn't find $name in WhatsApp.", "WhatsApp मध्ये $name सापडले नाहीत.")
-        if (!Prefs.autoSend(svc)) return say("It's ready. Tap send.", "तयार आहे. सेंड दाबा.")
         var sent = false
         repeat(2) { i ->
-            val b = svc.waitForNode(if (i == 0) 7000 else 2500) { isWaSend(it, pkg) } ?: return@repeat
-            svc.clickNode(b)
+            val b = sc.waitForNode(if (i == 0) 7000 else 2500) { isWaSend(it, pkg) } ?: return@repeat
+            sc.clickNode(b)
             sent = true
             delay(1200)
         }
@@ -240,16 +272,16 @@ class Actions(private val svc: AgentAccessibilityService, private val voice: Voi
         else say("I couldn't find the send button.", "सेंड बटण सापडलं नाही.")
     }
 
-    private suspend fun waPickContact(pkg: String, name: String): Boolean {
-        svc.findNode { it.packageName == pkg && (it.viewIdResourceName ?: "").endsWith("menuitem_search") || it.packageName == pkg && label(it) == "search" }
-            ?.let { svc.clickNode(it); delay(700) }
-        val field = svc.waitForNode(3000) { it.packageName == pkg && it.isEditable } ?: return false
-        svc.setText(field, name)
+    private suspend fun waPickContact(sc: Screen, pkg: String, name: String): Boolean {
+        sc.findNode { it.packageName == pkg && (it.viewIdResourceName ?: "").endsWith("menuitem_search") || it.packageName == pkg && label(it) == "search" }
+            ?.let { sc.clickNode(it); delay(700) }
+        val field = sc.waitForNode(3000) { it.packageName == pkg && it.isEditable } ?: return false
+        sc.setText(field, name)
         delay(1500)
-        val row = svc.waitForNode(4000) { n ->
+        val row = sc.waitForNode(4000) { n ->
             n.packageName == pkg && !n.isEditable && n.text != null && Text.nameScore(name, n.text.toString()) >= 0.85
         } ?: return false
-        svc.clickNode(row)
+        sc.clickNode(row)
         delay(800)
         return true
     }
@@ -276,27 +308,31 @@ class Actions(private val svc: AgentAccessibilityService, private val voice: Voi
 
     /** "Send this to Rahul": use the Share button of whatever app is open. */
     private suspend fun shareThis(who: String) {
+        val sc = screen ?: return say(
+            "I can't press buttons in other apps in this version. Tap Share yourself and pick WhatsApp, or say: send the latest photo to ${who}.",
+            "या व्हर्जनमध्ये मी इतर ॲप्समधली बटणं दाबू शकत नाही. तुम्ही शेअर दाबा, किंवा म्हणा: शेवटचा फोटो पाठव."
+        )
         val pkg = waPackage() ?: return say("WhatsApp isn't installed.", "WhatsApp इन्स्टॉल केलेलं नाही.")
         val t = resolve(who) ?: return
         val shareRe = Regex("^(share|शेअर|शेअर करा|share via|share…|share\\.\\.\\.)$")
-        var share = svc.findNode { !it.isEditable && shareRe.matches(label(it)) }
+        var share = sc.findNode { !it.isEditable && shareRe.matches(label(it)) }
         if (share == null) {
             // Many apps keep Share inside the ⋮ menu.
-            svc.findNode { Regex("^(more options|more|आणखी पर्याय)$").matches(label(it)) }?.let {
-                svc.clickNode(it)
-                share = svc.waitForNode(2500) { n -> !n.isEditable && shareRe.matches(label(n)) }
+            sc.findNode { Regex("^(more options|more|आणखी पर्याय)$").matches(label(it)) }?.let {
+                sc.clickNode(it)
+                share = sc.waitForNode(2500) { n -> !n.isEditable && shareRe.matches(label(n)) }
             }
         }
         val s = share ?: return say("I can't find a Share button on this screen.", "या स्क्रीनवर शेअर बटण सापडलं नाही.")
         say("Sharing with ${t.name}.", "${t.name} यांना शेअर करत आहे.")
-        svc.clickNode(s)
-        var wa = svc.waitForNode(5000) { (it.text ?: "").toString().trim().equals("WhatsApp", true) }
+        sc.clickNode(s)
+        var wa = sc.waitForNode(5000) { (it.text ?: "").toString().trim().equals("WhatsApp", true) }
         if (wa == null) {
-            svc.scroll("down", null)
-            wa = svc.waitForNode(2500) { (it.text ?: "").toString().trim().equals("WhatsApp", true) }
+            sc.scroll("down", null)
+            wa = sc.waitForNode(2500) { (it.text ?: "").toString().trim().equals("WhatsApp", true) }
         }
         if (wa == null) return say("WhatsApp isn't in the share list.", "शेअर लिस्टमध्ये WhatsApp नाही.")
-        svc.clickNode(wa)
+        sc.clickNode(wa)
         finishWaShare(pkg, t.name)
     }
 
@@ -304,11 +340,12 @@ class Actions(private val svc: AgentAccessibilityService, private val voice: Voi
         val text = message ?: svc.ask(tr("What should the message say?", "मेसेजमध्ये काय लिहू?"))
         if (text.isNullOrBlank()) return say("Okay, cancelled.", "ठीक आहे, रद्द केलं.")
         start(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(t.number))).putExtra("sms_body", text))
-        if (!Prefs.autoSend(svc)) return say("Your text to ${t.name} is ready. Tap send.", "${t.name} यांचा मेसेज तयार आहे. सेंड दाबा.")
-        val b = svc.waitForNode(7000) { n ->
+        val sc = screen
+        if (sc == null || !Prefs.autoSend(svc)) return say("Your text to ${t.name} is ready. Just tap Send.", "${t.name} यांचा मेसेज तयार आहे. फक्त सेंड दाबा.")
+        val b = sc.waitForNode(7000) { n ->
             !n.isEditable && Regex("^send( sms| message| mms| text)?$|^send (sms|message)\\b.*|^पाठवा").containsMatchIn(label(n))
         } ?: return say("The text is ready but I couldn't find the send button.", "मेसेज तयार आहे पण सेंड बटण सापडलं नाही.")
-        svc.clickNode(b)
+        sc.clickNode(b)
         say("Text sent to ${t.name}.", "${t.name} यांना मेसेज पाठवला.")
     }
 
@@ -354,11 +391,12 @@ class Actions(private val svc: AgentAccessibilityService, private val voice: Voi
     /** Android doesn't let apps flip Wi-Fi/Bluetooth directly, so open the switch and tap it. */
     private suspend fun switchOnScreen(intent: Intent, on: Boolean, en: String, mr: String) {
         if (!start(intent)) return say("I couldn't open $en settings.", "$mr सेटिंग्ज उघडता आल्या नाहीत.")
-        val sw = svc.waitForNode(5000) { it.isCheckable && (it.className?.toString() ?: "").contains("Switch") }
+        val sc = screen ?: return say("Here is $en. Tap the switch to turn it ${if (on) "on" else "off"}.", "हे $mr. स्विच दाबा.")
+        val sw = sc.waitForNode(5000) { it.isCheckable && (it.className?.toString() ?: "").contains("Switch") }
         if (sw == null) return say("Here is $en. Please tap the switch.", "हे $mr. कृपया स्विच दाबा.")
-        if (sw.isChecked != on) svc.clickNode(sw)
+        if (sw.isChecked != on) sc.clickNode(sw)
         delay(700)
-        svc.press("back")
+        sc.press("back")
         if (on) say("$en is on.", "$mr चालू केलं.") else say("$en is off.", "$mr बंद केलं.")
     }
 
@@ -414,8 +452,9 @@ class Actions(private val svc: AgentAccessibilityService, private val voice: Voi
         val i = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(q)))
         if (!(installed(yt) && start(Intent(i).setPackage(yt)) || start(i))) return
         // Tap the first video in the results.
-        svc.waitForNode(8000) { it.packageName == yt && (it.contentDescription ?: "").toString().contains("play video", true) }
-            ?.let { svc.clickNode(it) }
+        val sc = screen ?: return
+        sc.waitForNode(8000) { it.packageName == yt && (it.contentDescription ?: "").toString().contains("play video", true) }
+            ?.let { sc.clickNode(it) }
     }
 
     private suspend fun volume(action: String) {
@@ -438,7 +477,17 @@ class Actions(private val svc: AgentAccessibilityService, private val voice: Voi
         }
     }
 
-    private fun global(action: String) {
-        svc.press(action)
+    private suspend fun global(action: String) {
+        val sc = screen
+        if (sc != null) { sc.press(action); return }
+        when (action) {
+            "home" -> start(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
+            else -> needsFull()
+        }
     }
+
+    private suspend fun needsFull() = say(
+        "Sorry, that needs control of the screen, which this version doesn't have.",
+        "माफ करा, त्यासाठी स्क्रीन कंट्रोल लागतो, जो या व्हर्जनमध्ये नाही."
+    )
 }

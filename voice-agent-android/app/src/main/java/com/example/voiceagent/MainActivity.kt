@@ -19,7 +19,7 @@ import android.widget.TextView
 import android.widget.Toast
 import java.io.File
 
-/** The setup and settings screen. The agent itself lives in [AgentAccessibilityService]. */
+/** The setup and settings screen. The agent itself lives in [AgentService]. */
 @Suppress("DEPRECATION")
 class MainActivity : Activity() {
 
@@ -47,6 +47,20 @@ class MainActivity : Activity() {
             open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
         }
         findViewById<Button>(R.id.btnA11y).setOnClickListener { open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        findViewById<Button>(R.id.btnOverlay).setOnClickListener {
+            open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+        }
+        findViewById<Button>(R.id.btnStart).setOnClickListener {
+            when {
+                !granted(Manifest.permission.RECORD_AUDIO) -> toast("First allow the microphone (step 1).")
+                !Settings.canDrawOverlays(this) -> toast("First allow “Display over other apps” (step 3).")
+                AgentService.start(this) -> toast("Voice Agent started. Look for the 🎤 button.")
+                else -> toast("Couldn't start. Check the permissions above.")
+            }
+            status.postDelayed({ refresh() }, 600)
+        }
+        findViewById<android.view.View>(R.id.fullSetup).visibility =
+            if (BuildConfig.FULL) android.view.View.VISIBLE else android.view.View.GONE
 
         swEnabled = findViewById(R.id.swEnabled)
         swEnabled.setOnCheckedChangeListener { sw, on ->
@@ -100,10 +114,10 @@ class MainActivity : Activity() {
 
         findViewById<Button>(R.id.btnTest).setOnClickListener {
             val text = findViewById<EditText>(R.id.etTest).text.toString().trim()
-            val svc = AgentAccessibilityService.instance
+            val svc = AgentService.instance
             when {
                 text.isEmpty() -> {}
-                svc == null -> toast("Turn on Voice Agent in Accessibility first (step 4).")
+                svc == null -> toast("Start Voice Agent first (step 4).")
                 else -> { svc.runTyped(text); moveTaskToBack(true) }
             }
         }
@@ -113,7 +127,10 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        refresh()
+        // Start automatically once the needed permissions are there (e.g. after a phone restart).
+        if (AgentService.instance == null && granted(Manifest.permission.RECORD_AUDIO) && Settings.canDrawOverlays(this))
+            AgentService.start(this)
+        status.postDelayed({ refresh() }, 400)
     }
 
     private fun open(i: Intent) {
@@ -126,17 +143,19 @@ class MainActivity : Activity() {
 
     private fun refresh() {
         fun mark(ok: Boolean) = if (ok) "✅" else "❌"
-        val service = AgentAccessibilityService.instance != null
+        val service = AgentService.instance != null
         swEnabled.isChecked = Prefs.enabled(this)
         val wake = Prefs.wakeWord(this)
         findViewById<TextView>(R.id.tvEnabledHint).text = when {
-            !service -> "Finish setup below first (step 4)."
+            !service -> "Finish setup below first, then tap “Start Voice Agent”."
             Prefs.enabled(this) -> "ON: just say “$wake, call Mom” any time. The 🎤 button is green. Turn this off, double-tap 🎤, or say “$wake, stop listening” to disable."
             else -> "OFF: not listening. Tap 🎤 to give one command, or turn this on (or double-tap 🎤) to enable."
         }
         status.text = buildString {
-            appendLine("${mark(service)} Accessibility service ${if (service) "running" else "off (step 4)"}")
+            appendLine("${mark(service)} Voice Agent ${if (service) "running" else "not started (step 4)"}")
             appendLine("${mark(granted(Manifest.permission.RECORD_AUDIO))} Microphone")
+            appendLine("${mark(Settings.canDrawOverlays(this@MainActivity))} Display over other apps")
+            if (BuildConfig.FULL) appendLine("${mark(Screen.current != null)} Screen control (Accessibility)")
             appendLine("${mark(granted(Manifest.permission.READ_CONTACTS))} Contacts")
             appendLine("${mark(granted(Manifest.permission.CALL_PHONE))} Phone calls")
             appendLine("${mark(Environment.isExternalStorageManager())} Files access")
