@@ -29,6 +29,17 @@ import kotlin.coroutines.resume
  */
 class Voice(private val ctx: Context, private val lang: () -> String) {
 
+    companion object {
+        /** Google's speech recognizer (never our own pass-through one). */
+        fun pickRecognizer(ctx: Context): android.content.ComponentName? {
+            val all = ctx.packageManager.queryIntentServices(Intent(android.speech.RecognitionService.SERVICE_INTERFACE), 0)
+                .map { android.content.ComponentName(it.serviceInfo.packageName, it.serviceInfo.name) }
+                .filter { it.packageName != ctx.packageName && !it.packageName.startsWith("com.example.voiceagent") }
+            val preferred = listOf("com.google.android.googlequicksearchbox", "com.google.android.tts", "com.google.android.as")
+            return preferred.firstNotNullOfOrNull { p -> all.firstOrNull { it.packageName == p } } ?: all.firstOrNull()
+        }
+    }
+
     private var tts: TextToSpeech? = null
     private val ttsReady = CompletableDeferred<Boolean>()
     private var recognizer: SpeechRecognizer? = null
@@ -92,7 +103,8 @@ class Voice(private val ctx: Context, private val lang: () -> String) {
      */
     suspend fun listen(passive: Boolean = false): String? = withContext(Dispatchers.Main) {
         lastError = 0
-        if (!SpeechRecognizer.isRecognitionAvailable(ctx)) {
+        val comp = pickRecognizer(ctx)
+        if (comp == null && !SpeechRecognizer.isRecognitionAvailable(ctx)) {
             lastError = SpeechRecognizer.ERROR_CLIENT
             return@withContext null
         }
@@ -101,7 +113,7 @@ class Voice(private val ctx: Context, private val lang: () -> String) {
             delay(180)
         }
         val offline = passive && offlineOk
-        val r = SpeechRecognizer.createSpeechRecognizer(ctx)
+        val r = if (comp != null) SpeechRecognizer.createSpeechRecognizer(ctx, comp) else SpeechRecognizer.createSpeechRecognizer(ctx)
         recognizer = r
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)

@@ -46,6 +46,14 @@ class AgentService : Service() {
             ctx.startForegroundService(Intent(ctx, AgentService::class.java)); true
         } catch (_: Exception) { false }
 
+        private val waiting = mutableListOf<(AgentService) -> Unit>()
+
+        /** Run [f] as soon as the service is up (it may still be starting). */
+        fun whenReady(f: (AgentService) -> Unit) {
+            val s = instance
+            if (s != null) f(s) else synchronized(waiting) { waiting += f }
+        }
+
         fun quit(ctx: Context) {
             try { ctx.stopService(Intent(ctx, AgentService::class.java)) } catch (_: Exception) {}
         }
@@ -82,6 +90,8 @@ class AgentService : Service() {
         instance = this
         voice = Voice(this) { Prefs.lang(this) }
         voice.init()
+        val ready = synchronized(waiting) { waiting.toList().also { waiting.clear() } }
+        android.os.Handler(mainLooper).post { ready.forEach { it(this) } }
         getSystemService(NotificationManager::class.java)
             .createNotificationChannel(NotificationChannel(CHANNEL, "Voice Agent", NotificationManager.IMPORTANCE_LOW))
     }
@@ -131,9 +141,30 @@ class AgentService : Service() {
             .setContentText(if (on) "Say \u201c$wake\u201d, then your command" else "Disabled \u00b7 tap 🎤 to talk")
             .setContentIntent(open)
             .setOngoing(true)
+            .addAction(Notification.Action.Builder(null, "🎤 Talk",
+                PendingIntent.getActivity(this, 4, Intent(this, TalkActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)).build())
             .addAction(Notification.Action.Builder(null, if (on) "Disable" else "Enable", svc(ACTION_TOGGLE, 1)).build())
             .addAction(Notification.Action.Builder(null, "Quit", svc(ACTION_QUIT, 3)).build())
             .build()
+    }
+
+    /** Can we open other apps right now? Android blocks it for background apps without one of these. */
+    fun canOpenApps(): Boolean =
+        Ui.visible > 0 || android.provider.Settings.canDrawOverlays(this) || Screen.current != null || Assistant.isDefault(this)
+
+    /** When Android won't let us open an app from the background, offer it as a notification to tap. */
+    fun offerLaunch(intent: Intent, text: String) {
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel("tap", "Tap to continue", NotificationManager.IMPORTANCE_HIGH))
+        val pi = PendingIntent.getActivity(this, 10, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        nm.notify(2, Notification.Builder(this, "tap")
+            .setSmallIcon(R.drawable.ic_mic)
+            .setContentTitle("Voice Agent")
+            .setContentText(text)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .setCategory(Notification.CATEGORY_CALL)
+            .build())
     }
 
     private fun refreshNotification() {
@@ -141,6 +172,16 @@ class AgentService : Service() {
     }
 
     // ---------------------------------------------------------------- sessions
+
+    val stateListeners = java.util.concurrent.CopyOnWriteArraySet<(State) -> Unit>()
+    val busy: Boolean get() = job?.isActive == true
+
+    /** Start listening for one command (tile, notification, shortcut, assistant), unless already busy. */
+    fun talk() {
+        if (job?.isActive == true) return
+        voice.cancelListening()
+        job = scope.launch { runSession(null) }
+    }
 
     /** Bubble tap: start listening for a command, or stop the current one. Works whether enabled or not. */
     fun toggle() {
@@ -367,6 +408,7 @@ class AgentService : Service() {
     }
 
     fun setState(state: State) {
+        stateListeners.forEach { try { it(state) } catch (_: Exception) {} }
         scope.launch(Dispatchers.Main) {
             val b = bubble ?: return@launch
             val (label, color) = when (state) {

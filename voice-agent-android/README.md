@@ -37,9 +37,15 @@ Why: Play Protect blocks apps installed from a browser if they use **Accessibili
 2. Open **Voice Agent** and do the setup steps:
    1. **Allow microphone, contacts, calls and notifications**
    2. **Allow access to files**: turn on *Allow access to manage all files* (to find and send files).
-   3. **Allow "Display over other apps"** (for the floating 🎤 button).
-   4. **Start Voice Agent**: the 🎤 button appears, plus a small "Voice Agent" notification.
-3. Turn on **Enable: always listening** at the top if you want hands-free, or just tap 🎤 and speak.
+   3. **Start Voice Agent**: a small "Voice Agent" notification appears, with a 🎤 **Talk** button.
+   4. **Make Voice Agent your digital assistant** (recommended): *Digital assistant app* → Voice Agent.
+      Then **hold the power button** to talk, and "Agent, …" can open WhatsApp and other apps by itself. This replaces Gemini/Google Assistant on the power button; switch back on the same page any time.
+   5. *Optional:* the floating 🎤 button ("Display over other apps"). Many phones deny this for apps not from the Play Store. Skip it if so; everything works without it.
+3. Turn on **Enable: always listening** at the top if you want hands-free.
+
+**Ways to talk to it:** hold the power button (step 4) · say "Agent …" (when enabled) · the **Voice Agent** Quick Settings tile · **🎤 Talk** in the notification · long-press the app icon → **Talk** · the floating 🎤 (if allowed).
+
+Without step 4, Android doesn't let a background app open other apps. When you use the wake word, the agent then puts a "Tap to continue" notification up instead. Phone calls always work directly.
 
 After restarting the phone, open the app once and it starts again.
 

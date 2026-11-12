@@ -5,7 +5,7 @@ import android.content.Context
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 
-/** Quick Settings tile (swipe down from the top): Enable / Disable always-listening. */
+/** Quick Settings tile (swipe down from the top): tap to talk. Green while always-listening is enabled. */
 class AgentTileService : TileService() {
 
     companion object {
@@ -16,18 +16,15 @@ class AgentTileService : TileService() {
 
     override fun onStartListening() = update()
 
-    override fun onClick() {
-        if (AgentService.instance == null) {
-            // Not running yet: open the app, which starts it.
-            val pi = android.app.PendingIntent.getActivity(
-                this, 0, android.content.Intent(this, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                android.app.PendingIntent.FLAG_IMMUTABLE
-            )
-            startActivityAndCollapse(pi)
-            return
-        }
-        Prefs.setEnabled(this, !Prefs.enabled(this))
-        update()
+    override fun onClick() = talk()
+
+    /** Tap the tile = talk now. */
+    private fun talk() {
+        val pi = android.app.PendingIntent.getActivity(
+            this, 1, android.content.Intent(this, TalkActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        startActivityAndCollapse(pi)
     }
 
     private fun update() {
@@ -39,9 +36,9 @@ class AgentTileService : TileService() {
             else -> Tile.STATE_INACTIVE
         }
         tile.subtitle = when {
-            !serviceOn -> "Tap to start"
-            Prefs.enabled(this) -> "Listening"
-            else -> "Disabled"
+            !serviceOn -> "Tap to talk"
+            Prefs.enabled(this) -> "Listening · tap to talk"
+            else -> "Tap to talk"
         }
         tile.updateTile()
     }

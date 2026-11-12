@@ -3,4 +3,11 @@
     <style name="AppTheme" parent="android:Theme.DeviceDefault.DayNight">
         <item name="android:colorAccent">#3F51B5</item>
     </style>
+    <style name="TalkTheme" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.25</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Translucent</item>
+    </style>
 </resources>

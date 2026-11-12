@@ -50,11 +50,14 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.btnOverlay).setOnClickListener {
             open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
         }
+        findViewById<Button>(R.id.btnAssistant).setOnClickListener {
+            open(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+            toast("Choose “Digital assistant app” → Voice Agent")
+        }
         findViewById<Button>(R.id.btnStart).setOnClickListener {
             when {
                 !granted(Manifest.permission.RECORD_AUDIO) -> toast("First allow the microphone (step 1).")
-                !Settings.canDrawOverlays(this) -> toast("First allow “Display over other apps” (step 3).")
-                AgentService.start(this) -> toast("Voice Agent started. Look for the 🎤 button.")
+                AgentService.start(this) -> toast("Voice Agent started.")
                 else -> toast("Couldn't start. Check the permissions above.")
             }
             status.postDelayed({ refresh() }, 600)
@@ -128,10 +131,13 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         // Start automatically once the needed permissions are there (e.g. after a phone restart).
-        if (AgentService.instance == null && granted(Manifest.permission.RECORD_AUDIO) && Settings.canDrawOverlays(this))
+        if (AgentService.instance == null && granted(Manifest.permission.RECORD_AUDIO))
             AgentService.start(this)
         status.postDelayed({ refresh() }, 400)
     }
+
+    override fun onStart() { super.onStart(); Ui.visible++ }
+    override fun onStop() { super.onStop(); Ui.visible-- }
 
     private fun open(i: Intent) {
         try { startActivity(i) } catch (_: Exception) { startActivity(Intent(Settings.ACTION_SETTINGS)) }
@@ -154,7 +160,8 @@ class MainActivity : Activity() {
         status.text = buildString {
             appendLine("${mark(service)} Voice Agent ${if (service) "running" else "not started (step 4)"}")
             appendLine("${mark(granted(Manifest.permission.RECORD_AUDIO))} Microphone")
-            appendLine("${mark(Settings.canDrawOverlays(this@MainActivity))} Display over other apps")
+            appendLine("${mark(Assistant.isDefault(this@MainActivity))} Default digital assistant (recommended)")
+            appendLine("${if (Settings.canDrawOverlays(this@MainActivity)) "✅" else "➖"} Floating 🎤 button (optional)")
             if (BuildConfig.FULL) appendLine("${mark(Screen.current != null)} Screen control (Accessibility)")
             appendLine("${mark(granted(Manifest.permission.READ_CONTACTS))} Contacts")
             appendLine("${mark(granted(Manifest.permission.CALL_PHONE))} Phone calls")
@@ -204,10 +211,18 @@ class MainActivity : Activity() {
     }
 
     private val HELP = """
+HOW TO TALK TO IT
+• Hold the power button (once Voice Agent is your digital assistant, step 4)
+• Say “Agent …” any time while Enable is on
+• Quick Settings tile “Voice Agent” (swipe down twice; add it with ✏️ the first time)
+• The 🎤 Talk button in the Voice Agent notification
+• Long-press the Voice Agent app icon → Talk
+• The floating 🎤 button, if your phone allows it (step 5)
+
 ENABLE / DISABLE
-• Enabled (green 🎤): always listening. Say “Agent, call Mom” any time, no tap needed. Or say “Agent”, wait for “Yes?”, then speak.
-• Disabled (grey 🎤): not listening. Tap 🎤 for one command.
-• To switch: the big switch at the top, double-tap 🎤, the “Voice Agent” Quick Settings tile, the Disable button in the notification, or by voice: “Agent, stop listening” / tap 🎤 and say “start listening”.
+• Enabled: always listening. Say “Agent, call Mom” any time, no tap needed. Or say “Agent”, wait for “Yes?”, then speak.
+• Disabled: not listening in the background. Use any of the ways above for one command.
+• To switch: the big switch at the top, the Enable/Disable button in the notification, double-tap the floating 🎤, or by voice: “Agent, stop listening” / “start listening”.
 
 OTHER CONTROLS
 • Tap 🎤: speak one command now. Tap again (⏹) to stop a task.

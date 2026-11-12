@@ -44,12 +44,18 @@
             android:text="1. Allow microphone, contacts, calls and notifications" />
         <Button android:id="@+id/btnFiles" style="@style/Btn"
             android:text="2. Allow access to files (for sending files)" />
-        <Button android:id="@+id/btnOverlay" style="@style/Btn"
-            android:text="3. Allow “Display over other apps” (for the 🎤 button)" />
         <Button android:id="@+id/btnStart" style="@style/Btn"
-            android:text="4. Start Voice Agent" />
+            android:text="3. Start Voice Agent" />
         <TextView style="@style/Hint"
-            android:text="A 🎤 button appears on your screen and a small “Voice Agent” notification stays while it runs. After restarting your phone, open this app once to start it again." />
+            android:text="A small “Voice Agent” notification stays while it runs, with a 🎤 Talk button. After restarting your phone, open this app once to start it again." />
+        <Button android:id="@+id/btnAssistant" style="@style/Btn"
+            android:text="4. Make Voice Agent your digital assistant (recommended)" />
+        <TextView style="@style/Hint"
+            android:text="Tap “Digital assistant app” → Voice Agent. Then hold the power button to talk, and “Agent, …” can open WhatsApp and other apps by itself. (This replaces Gemini/Google Assistant on the power button; you can switch back any time on the same page.)" />
+        <Button android:id="@+id/btnOverlay" style="@style/Btn"
+            android:text="5. Optional: floating 🎤 button (Display over other apps)" />
+        <TextView style="@style/Hint"
+            android:text="Some phones block this for apps not from the Play Store. Skip it if it says “denied”; everything else works without it." />
 
         <LinearLayout android:id="@+id/fullSetup" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">

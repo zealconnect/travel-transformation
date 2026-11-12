@@ -33,11 +33,30 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
 
     private fun tr(en: String, mr: String) = svc.tr(en, mr)
     private suspend fun say(en: String, mr: String) = voice.speak(tr(en, mr))
-    private fun start(i: Intent): Boolean = try {
-        svc.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
-    } catch (e: Exception) { false }
+    /** Set when Android made us offer an app as a notification instead of opening it. */
+    private var offered = false
+
+    private fun start(i: Intent): Boolean {
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (i.resolveActivity(svc.packageManager) == null) return false
+        if (!svc.canOpenApps()) {
+            svc.offerLaunch(i, svc.tr("Tap to continue", "पुढे जाण्यासाठी टॅप करा"))
+            offered = true
+            return true
+        }
+        return try { svc.startActivity(i); true } catch (e: Exception) { false }
+    }
 
     suspend fun execute(cmd: Command) {
+        offered = false
+        run(cmd)
+        if (offered) say(
+            "Tap the Voice Agent notification to continue. To skip this step, make Voice Agent your digital assistant in the app.",
+            "पुढे जाण्यासाठी Voice Agent ची नोटिफिकेशन टॅप करा. हे टाळायला ॲपमध्ये Voice Agent ला डिजिटल असिस्टंट बनवा."
+        )
+    }
+
+    private suspend fun run(cmd: Command) {
         when (cmd) {
             is Command.Call -> phoneCall(cmd.who)
             is Command.WaMessage -> resolve(cmd.who)?.let { waMessage(it, cmd.message) }
@@ -141,8 +160,13 @@ class Actions(private val svc: AgentService, private val voice: Voice) {
     private suspend fun phoneCall(who: String) {
         val t = resolve(who) ?: return
         say("Calling ${t.name}.", "${t.name} यांना फोन लावत आहे.")
+        val uri = Uri.fromParts("tel", t.number, null)
         val canCall = svc.checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
-        start(Intent(if (canCall) Intent.ACTION_CALL else Intent.ACTION_DIAL, Uri.fromParts("tel", t.number, null)))
+        if (canCall) {
+            // Works even from the background: the phone app takes over.
+            try { svc.getSystemService(android.telecom.TelecomManager::class.java).placeCall(uri, null); return } catch (_: Exception) {}
+        }
+        start(Intent(if (canCall) Intent.ACTION_CALL else Intent.ACTION_DIAL, uri))
     }
 
     private suspend fun unsplit(cmd: Command.WaUnsplit) {
