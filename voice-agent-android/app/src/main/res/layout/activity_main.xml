@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🎤 Voice Agent"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Free. No API key. Talks English and मराठी."
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:lineSpacingExtra="4dp"
+            android:textSize="15sp" />
+
+        <TextView style="@style/Section" android:text="Setup (one time)" />
+
+        <Button android:id="@+id/btnPerms" style="@style/Btn"
+            android:text="1. Allow microphone, contacts and calls" />
+        <Button android:id="@+id/btnFiles" style="@style/Btn"
+            android:text="2. Allow access to files (for sending files)" />
+        <Button android:id="@+id/btnRestricted" style="@style/Btn"
+            android:text="3. Allow restricted settings" />
+        <TextView style="@style/Hint"
+            android:text="Android blocks Accessibility for apps installed outside the Play Store until you allow it once: on the App info page tap ⋮ (top right) → Allow restricted settings. If you don't see ⋮ yet, try step 4 first, then come back." />
+        <Button android:id="@+id/btnA11y" style="@style/Btn"
+            android:text="4. Turn on Voice Agent in Accessibility" />
+        <TextView style="@style/Hint"
+            android:text="Tap Voice Agent → Use Voice Agent → Allow. A blue 🎤 button appears on your screen." />
+
+        <TextView style="@style/Section" android:text="Settings" />
+
+        <Switch android:id="@+id/swEnabled"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:text="Agent is on" android:textSize="16sp" />
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="Language I listen and reply in" />
+        <RadioGroup android:id="@+id/lang"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <RadioButton android:id="@+id/langEn" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="English" />
+            <RadioButton android:id="@+id/langMr" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:layout_marginStart="24dp" android:text="मराठी" />
+        </RadioGroup>
+        <TextView style="@style/Hint"
+            android:text="You can also switch by voice: say “speak Marathi” or “इंग्रजीत बोल”." />
+
+        <Switch android:id="@+id/swAutoSend"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:textSize="16sp"
+            android:text="Press Send automatically on WhatsApp and SMS" />
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Country code for WhatsApp numbers" />
+            <EditText android:id="@+id/etCc" android:layout_width="80dp" android:layout_height="wrap_content"
+                android:inputType="number" android:maxLength="4" />
+        </LinearLayout>
+
+        <TextView style="@style/Section" android:text="Free offline AI (optional)" />
+        <TextView android:id="@+id/tvModel" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="6dp" />
+        <TextView style="@style/Hint"
+            android:text="Everyday commands work without this. Add a Gemma model file (.task) so the agent can also handle unusual requests and work inside other apps. It runs on your phone with no internet and no cost. See the README for where to download it." />
+        <Button android:id="@+id/btnModel" style="@style/Btn" android:text="Choose model file (.task)" />
+        <Button android:id="@+id/btnRemoveModel" style="@style/Btn" android:text="Remove model" />
+
+        <TextView style="@style/Section" android:text="Try a command by typing" />
+        <EditText android:id="@+id/etTest" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="e.g. call Mom" android:inputType="text" />
+        <Button android:id="@+id/btnTest" style="@style/Btn" android:text="Run" />
+
+        <TextView style="@style/Section" android:text="How to use" />
+        <TextView android:id="@+id/tvHelp" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="6dp"
+            android:lineSpacingExtra="4dp" android:textIsSelectable="true" />
+    </LinearLayout>
+</ScrollView>
